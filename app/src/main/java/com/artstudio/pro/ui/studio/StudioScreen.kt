@@ -18,8 +18,11 @@ import com.artstudio.pro.core.canvas.ArtCanvasView
 @Composable
 fun StudioScreen() {
     var brushSize by remember { mutableFloatStateOf(40f) }
-    var currentColor by remember { mutableIntStateOf(AColor.BLACK) }
+    var isRed by remember { mutableStateOf(false) }
     val brush = remember { BrushDefinition("pen", "Ink Pen", BrushMedium.INK_PEN) }
+
+    val activeComposeColor = if (isRed) Color.Red else Color.Black
+    val activeAndroidColor = if (isRed) AColor.RED else AColor.BLACK
 
     Scaffold(
         topBar = {
@@ -33,8 +36,8 @@ fun StudioScreen() {
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Text("Size", color = Color.White)
                     Slider(value = brushSize, onValueChange = { brushSize = it }, valueRange = 2f..200f, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
-                    IconButton(onClick = { currentColor = if (currentColor == AColor.BLACK) AColor.RED else AColor.BLACK }) {
-                        Icon(Icons.Default.ColorLens, "Color", tint = Color(currentColor))
+                    IconButton(onClick = { isRed = !isRed }) {
+                        Icon(Icons.Default.ColorLens, "Color", tint = activeComposeColor)
                     }
                 }
             }
@@ -45,13 +48,13 @@ fun StudioScreen() {
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     ArtCanvasView(ctx, 2048, 2048).apply {
-                        this.strokeEngine = StrokeEngine(brush, currentColor)
+                        this.strokeEngine = StrokeEngine(brush, activeAndroidColor)
                     }
                 },
                 update = { view ->
                     brush.baseSize = brushSize
                     view.strokeEngine?.brush = brush
-                    view.strokeEngine?.activeColor = currentColor
+                    view.strokeEngine?.activeColor = activeAndroidColor
                 }
             )
         }

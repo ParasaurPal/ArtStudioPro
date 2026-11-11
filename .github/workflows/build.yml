@@ -22,7 +22,13 @@ jobs:
           gradle-version: 8.11.1
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        run: |
+          gradle wrapper
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --stacktrace
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
