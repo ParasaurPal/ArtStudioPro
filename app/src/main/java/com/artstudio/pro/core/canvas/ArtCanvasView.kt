@@ -11,6 +11,7 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.engine.StrokePoint
@@ -37,6 +38,28 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private val viewToDocument = Matrix()
     private val documentToView = Matrix()
     private var transformReady = false
+    private var zoomScale = 1f
+    private var panX = 0f
+    private var panY = 0f
+    private var isPanning = false
+    private var lastFocusX = 0f
+    private var lastFocusY = 0f
+    private val scaleDetector = ScaleGestureDetector(context,
+        object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                val previous = zoomScale
+                zoomScale = (zoomScale * detector.scaleFactor).coerceIn(0.25f, 8f)
+                val factor = zoomScale / previous
+                val centerX = width / 2f
+                val centerY = height / 2f
+                panX = (detector.focusX - centerX) - ((detector.focusX - centerX) - panX) * factor
+                panY = (detector.focusY - centerY) - ((detector.focusY - centerY) - panY) * factor
+                updateTransform()
+                invalidate()
+                return true
+            }
+        }
+    )
 
     private data class TileState(val x: Int, val y: Int, val bitmap: Bitmap)
     private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>)
@@ -119,9 +142,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     private fun updateTransform() {
         if (width <= 0 || height <= 0) return
-        val scale = min(width.toFloat() / documentWidth, height.toFloat() / documentHeight)
-        val left = (width - documentWidth * scale) / 2f
-        val top = (height - documentHeight * scale) / 2f
+        val fitScale = min(width.toFloat() / documentWidth, height.toFloat() / documentHeight)
+        val scale = fitScale * zoomScale
+        val left = (width - documentWidth * scale) / 2f + panX
+        val top = (height - documentHeight * scale) / 2f + panY
         viewportRect.set(left, top, left + documentWidth * scale, top + documentHeight * scale)
         documentToView.setRectToRect(documentRect, viewportRect, Matrix.ScaleToFit.FILL)
         transformReady = documentToView.invert(viewToDocument)
@@ -332,6 +356,38 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!transformReady) updateTransform()
         if (!transformReady) return false
+        scaleDetector.onTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+            if (!isPanning) commitStroke()
+            isPanning = true
+            lastFocusX = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
+            lastFocusY = (0 until event.pointerCount).map { event.getY(it) }.average().toFloat()
+            parent?.requestDisallowInterceptTouchEvent(true)
+            return true
+        }
+        if (isPanning && event.pointerCount >= 2) {
+            if (event.actionMasked == MotionEvent.ACTION_MOVE) {
+                val focusX = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
+                val focusY = (0 until event.pointerCount).map { event.getY(it) }.average().toFloat()
+                panX += focusX - lastFocusX
+                panY += focusY - lastFocusY
+                lastFocusX = focusX
+                lastFocusY = focusY
+                updateTransform()
+                invalidate()
+            }
+            return true
+        }
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
+            isPanning = false
+            parent?.requestDisallowInterceptTouchEvent(false)
+            return true
+        }
+        if (isPanning) {
+            isPanning = false
+            parent?.requestDisallowInterceptTouchEvent(false)
+            return true
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 if (!viewportRect.contains(event.x, event.y)) return false
