@@ -2,7 +2,7 @@ package com.artstudio.pro.core.model
 import android.graphics.*
 import java.util.UUID
 
-enum class BlendMode { NORMAL, MULTIPLY, SCREEN, OVERLAY }
+enum class BlendMode { NORMAL, DARKEN, MULTIPLY, COLOR_BURN, LINEAR_BURN, DARKER_COLOR, LIGHTEN, SCREEN, COLOR_DODGE, LINEAR_DODGE, LIGHTER_COLOR, OVERLAY, SOFT_LIGHT, HARD_LIGHT, VIVID_LIGHT, LINEAR_LIGHT, PIN_LIGHT, HARD_MIX, DIFFERENCE, EXCLUSION, SUBTRACT, DIVIDE, HUE, SATURATION, COLOR, LUMINOSITY, PASS_THROUGH }
 
 data class ArtLayer(
     val id: String = UUID.randomUUID().toString(),

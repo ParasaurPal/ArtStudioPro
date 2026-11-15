@@ -34,7 +34,8 @@ object ProjectArchive {
         val version: Int = 1,
         val width: Int,
         val height: Int,
-        val layers: List<LayerManifest>
+        val layers: List<LayerManifest>,
+        val transparentBackground: Boolean = false
     )
 
     @Serializable
@@ -50,12 +51,22 @@ object ProjectArchive {
     data class LoadedProject(
         val width: Int,
         val height: Int,
-        val layers: List<ArtLayer>
+        val layers: List<ArtLayer>,
+        val transparentBackground: Boolean
     )
 
-    fun save(output: OutputStream, width: Int, height: Int, layers: List<ArtLayer>) {
-        require(width > 0 && height > 0) { "Project dimensions must be positive." }
-        require(layers.isNotEmpty()) { "A project must contain at least one layer." }
+    fun save(
+        output: OutputStream,
+        width: Int,
+        height: Int,
+        layers: List<ArtLayer>,
+        transparentBackground: Boolean = false
+    ) {
+        require(width in 1..12000 && height in 1..12000) { "Project dimensions are outside the supported range." }
+        require(layers.isNotEmpty() && layers.size <= 128) { "A project must contain between 1 and 128 layers." }
+        require(width.toLong() * height.toLong() * layers.size.toLong() <= 80_000_000L) {
+            "This project exceeds the safe memory budget for saving."
+        }
         require(layers.all { it.width == width && it.height == height }) {
             "All layers must match the project dimensions."
         }
@@ -63,6 +74,7 @@ object ProjectArchive {
         val manifest = ProjectManifest(
             width = width,
             height = height,
+            transparentBackground = transparentBackground,
             layers = layers.mapIndexed { index, layer ->
                 LayerManifest(
                     file = "layers/layer_%03d.png".format(index),
@@ -96,6 +108,7 @@ object ProjectArchive {
 
     fun load(input: InputStream): LoadedProject {
         val entries = mutableMapOf<String, ByteArray>()
+        var totalBytes = 0L
         ZipInputStream(input.buffered()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
@@ -104,8 +117,21 @@ object ProjectArchive {
                         "The project contains an unsupported file path."
                     }
                     val bytes = ByteArrayOutputStream()
-                    zip.copyTo(bytes)
-                    entries[entry.name] = bytes.toByteArray()
+                    val buffer = ByteArray(16 * 1024)
+                    var entryBytes = 0L
+                    while (true) {
+                        val count = zip.read(buffer)
+                        if (count < 0) break
+                        entryBytes += count
+                        totalBytes += count
+                        require(entryBytes <= 256L * 1024 * 1024 && totalBytes <= 512L * 1024 * 1024) {
+                            "The project archive is too large to open safely."
+                        }
+                        bytes.write(buffer, 0, count)
+                    }
+                    require(entries.put(entry.name, bytes.toByteArray()) == null) {
+                        "The project contains duplicate file entries."
+                    }
                 }
                 zip.closeEntry()
             }
@@ -117,11 +143,15 @@ object ProjectArchive {
         require(manifest.format == "artstudio-project" && manifest.version == 1) {
             "This project version is not supported."
         }
-        require(manifest.width in 1..20000 && manifest.height in 1..20000) {
+        require(manifest.width in 1..12000 && manifest.height in 1..12000) {
             "Project dimensions are outside the supported range."
         }
-        require(manifest.layers.isNotEmpty() && manifest.layers.size <= 512) {
+        require(manifest.layers.isNotEmpty() && manifest.layers.size <= 128) {
             "The project layer count is invalid."
+        }
+        val totalPixels = manifest.width.toLong() * manifest.height.toLong() * manifest.layers.size.toLong()
+        require(totalPixels <= 80_000_000L) {
+            "This project exceeds the safe memory budget for opening on this device."
         }
 
         val loadedLayers = manifest.layers.map { metadata ->
@@ -148,6 +178,6 @@ object ProjectArchive {
                 bitmap.recycle()
             }
         }
-        return LoadedProject(manifest.width, manifest.height, loadedLayers)
+        return LoadedProject(manifest.width, manifest.height, loadedLayers, manifest.transparentBackground)
     }
 }
