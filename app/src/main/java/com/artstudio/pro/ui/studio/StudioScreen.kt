@@ -47,6 +47,11 @@ fun StudioScreen() {
     var activeColor by remember { mutableIntStateOf(AColor.BLACK) }
     var documentWidth by remember { mutableIntStateOf(2048) }
     var documentHeight by remember { mutableIntStateOf(2048) }
+    var documentDpi by remember { mutableIntStateOf(72) }
+    var showCustomCanvas by remember { mutableStateOf(false) }
+    var customWidth by remember { mutableStateOf("2048") }
+    var customHeight by remember { mutableStateOf("2048") }
+    var customDpi by remember { mutableStateOf("300") }
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
@@ -94,7 +99,7 @@ fun StudioScreen() {
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
             context.contentResolver.openOutputStream(uri)?.use {
-                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, transparentBackground)
+                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, transparentBackground, documentDpi)
             } ?: error("Unable to open the selected file.")
         }.onSuccess {
             Toast.makeText(context, "Project saved", Toast.LENGTH_SHORT).show()
@@ -133,6 +138,7 @@ fun StudioScreen() {
             input.use { ProjectArchive.load(it) }
         }.onSuccess { project ->
             transparentBackground = project.transparentBackground
+            documentDpi = project.dpi
             if (project.width == documentWidth && project.height == documentHeight) {
                 canvasView?.replaceLayers(project.layers)
                 layerRefresh++
@@ -425,6 +431,59 @@ fun StudioScreen() {
         }
     }
 
+    if (showCustomCanvas) {
+        AlertDialog(
+            onDismissRequest = { showCustomCanvas = false },
+            title = { Text("Custom canvas") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = customWidth, onValueChange = { customWidth = it.filter(Char::isDigit).take(5) }, label = { Text("Width (px)") }, singleLine = true)
+                    OutlinedTextField(value = customHeight, onValueChange = { customHeight = it.filter(Char::isDigit).take(5) }, label = { Text("Height (px)") }, singleLine = true)
+                    OutlinedTextField(value = customDpi, onValueChange = { customDpi = it.filter(Char::isDigit).take(4) }, label = { Text("Resolution (DPI)") }, singleLine = true)
+                    val widthPx = customWidth.toIntOrNull() ?: 0
+                    val heightPx = customHeight.toIntOrNull() ?: 0
+                    val dpiValue = customDpi.toIntOrNull() ?: 0
+                    if (widthPx > 0 && heightPx > 0 && dpiValue > 0) {
+                        Text(
+                            "Physical size: ${"%.2f".format(widthPx / dpiValue.toFloat())} × ${"%.2f".format(heightPx / dpiValue.toFloat())} in",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val widthPx = customWidth.toIntOrNull()
+                    val heightPx = customHeight.toIntOrNull()
+                    val dpiValue = customDpi.toIntOrNull()
+                    if (widthPx != null && heightPx != null && dpiValue != null &&
+                        widthPx in 1..12000 && heightPx in 1..12000 && dpiValue in 1..2400 &&
+                        widthPx.toLong() * heightPx.toLong() <= 100_000_000L
+                    ) {
+                        val freshLayer = ArtLayer(name = "Background", width = widthPx, height = heightPx)
+                        documentDpi = dpiValue
+                        transparentBackground = false
+                        if (widthPx == documentWidth && heightPx == documentHeight) {
+                            canvasView?.replaceLayers(listOf(freshLayer))
+                            layerRefresh++
+                        } else {
+                            pendingLayers = listOf(freshLayer)
+                            documentWidth = widthPx
+                            documentHeight = heightPx
+                        }
+                        showCustomCanvas = false
+                    } else {
+                        Toast.makeText(context, "Enter valid dimensions and DPI within the supported limits.", Toast.LENGTH_LONG).show()
+                    }
+                }) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomCanvas = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     if (showRenameDialog) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
@@ -458,6 +517,13 @@ fun StudioScreen() {
                 Column(
                     modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())
                 ) {
+                    TextButton(
+                        onClick = {
+                            showNewDocument = false
+                            showCustomCanvas = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Custom dimensions", color = MaterialTheme.colorScheme.primary) }
                     DocumentPresets.all.forEach { preset ->
                         TextButton(
                             onClick = {
@@ -466,6 +532,8 @@ fun StudioScreen() {
                                     width = preset.width,
                                     height = preset.height
                                 )
+                                documentDpi = preset.dpi
+                                transparentBackground = false
                                 if (preset.width == documentWidth && preset.height == documentHeight) {
                                     canvasView?.replaceLayers(listOf(freshLayer))
                                     layerRefresh++
