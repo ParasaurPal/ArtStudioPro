@@ -152,9 +152,9 @@ fun StudioScreen() {
     ) { uri ->
         if (uri != null) runCatching {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, bounds)
-            } ?: error("Unable to read the selected image.")
+            val boundsInput = context.contentResolver.openInputStream(uri)
+                ?: error("Unable to read the selected image.")
+            boundsInput.use { BitmapFactory.decodeStream(it, null, bounds) }
             require(bounds.outWidth > 0 && bounds.outHeight > 0) { "The selected file is not a supported image." }
             val targetLimit = maxOf(documentWidth, documentHeight) * 2
             var sampleSize = 1
