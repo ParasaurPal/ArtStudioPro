@@ -342,9 +342,16 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val point = floatArrayOf(event.x, event.y)
         viewToDocument.mapPoints(point)
         val pressure = event.pressure.takeIf { it > 0f } ?: 0.5f
+        val hasStylusAxes = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
+        val tilt = if (hasStylusAxes) event.getAxisValue(MotionEvent.AXIS_TILT) else 0f
+        val orientation = if (hasStylusAxes) event.getAxisValue(MotionEvent.AXIS_ORIENTATION) else 0f
         return StrokePoint(
             point[0].coerceIn(0f, documentWidth.toFloat()),
-            point[1].coerceIn(0f, documentHeight.toFloat()), pressure
+            point[1].coerceIn(0f, documentHeight.toFloat()),
+            pressure,
+            tilt,
+            orientation,
+            event.eventTime
         )
     }
 
