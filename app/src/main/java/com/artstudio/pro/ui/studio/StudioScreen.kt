@@ -437,7 +437,7 @@ fun StudioScreen() {
             title = { Text("Custom canvas") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = customWidth, onValueChange = { customWidth = it.filter(Char::isDigit).take(5) }, label = { Text("Width (px)") }, singleLine = true)
+                    OutlinedTextField(value = customWidth, onValueChange = { customWidth = it.filter { char -> char.isDigit() }.take(5) }, label = { Text("Width (px)") }, singleLine = true)
                     OutlinedTextField(value = customHeight, onValueChange = { customHeight = it.filter(Char::isDigit).take(5) }, label = { Text("Height (px)") }, singleLine = true)
                     OutlinedTextField(value = customDpi, onValueChange = { customDpi = it.filter(Char::isDigit).take(4) }, label = { Text("Resolution (DPI)") }, singleLine = true)
                     val widthPx = customWidth.toIntOrNull() ?: 0
