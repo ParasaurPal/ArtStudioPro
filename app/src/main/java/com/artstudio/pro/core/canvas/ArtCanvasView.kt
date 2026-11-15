@@ -173,12 +173,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         canvas.clipRect(viewportRect)
         layers.filter { it.isVisible }.forEach { layer ->
             layerPaint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-            layerPaint.xfermode = when (layer.blendMode) {
-                BlendMode.MULTIPLY -> PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                BlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                BlendMode.OVERLAY -> PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                BlendMode.NORMAL -> null
-            }
+            com.artstudio.pro.core.model.BlendModePainter.apply(layerPaint, layer.blendMode)
             canvas.drawBitmap(layer.bitmap, null, viewportRect, layerPaint)
         }
         layerPaint.xfermode = null
@@ -275,12 +270,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val lower = layers[activeLayerIndex - 1]
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
             alpha = (upper.opacity.coerceIn(0f, 1f) * 255f).toInt()
-            xfermode = when (upper.blendMode) {
-                BlendMode.MULTIPLY -> PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                BlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                BlendMode.OVERLAY -> PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                BlendMode.NORMAL -> null
-            }
+            com.artstudio.pro.core.model.BlendModePainter.apply(this, upper.blendMode)
         }
         lower.canvas.drawBitmap(upper.bitmap, 0f, 0f, paint)
         lower.opacity = 1f
@@ -294,12 +284,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layers.filter { it.isVisible }.forEach { layer ->
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-                xfermode = when (layer.blendMode) {
-                    BlendMode.MULTIPLY -> PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                    BlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                    BlendMode.OVERLAY -> PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                    BlendMode.NORMAL -> null
-                }
+                com.artstudio.pro.core.model.BlendModePainter.apply(this, layer.blendMode)
             }
             merged.canvas.drawBitmap(layer.bitmap, 0f, 0f, paint)
         }
