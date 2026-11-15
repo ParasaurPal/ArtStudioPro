@@ -27,6 +27,7 @@ import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.project.ProjectArchive
+import com.artstudio.pro.core.project.DocumentPresets
 
 private val studioPalette = listOf(
     AColor.BLACK, AColor.WHITE, AColor.RED, AColor.rgb(255, 145, 0),
@@ -45,6 +46,7 @@ fun StudioScreen() {
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
+    var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
     val brush = remember { BrushDefinition("basic-ink", "Ink Pen", BrushMedium.INK_PEN) }
@@ -106,6 +108,7 @@ fun StudioScreen() {
             TopAppBar(
                 title = { Text("ArtStudio Pro", color = Color.White) },
                 actions = {
+                    TextButton(onClick = { showNewDocument = true }) { Text("New", color = Color.White) }
                     TextButton(onClick = { openProject.launch(arrayOf("*/*")) }) { Text("Open", color = Color.White) }
                     TextButton(onClick = { importImage.launch(arrayOf("image/*")) }) { Text("Image", color = Color.White) }
                     TextButton(onClick = { saveProject.launch("Artwork.asp") }) { Text("Save", color = Color.White) }
@@ -216,6 +219,52 @@ fun StudioScreen() {
                 )
             }
         }
+    }
+
+    if (showNewDocument) {
+        AlertDialog(
+            onDismissRequest = { showNewDocument = false },
+            title = { Text("New canvas") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())
+                ) {
+                    DocumentPresets.all.forEach { preset ->
+                        TextButton(
+                            onClick = {
+                                val freshLayer = ArtLayer(
+                                    name = "Background",
+                                    width = preset.width,
+                                    height = preset.height
+                                )
+                                if (preset.width == documentWidth && preset.height == documentHeight) {
+                                    canvasView?.replaceLayers(listOf(freshLayer))
+                                    layerRefresh++
+                                } else {
+                                    pendingLayers = listOf(freshLayer)
+                                    documentWidth = preset.width
+                                    documentHeight = preset.height
+                                }
+                                showNewDocument = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(preset.name, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    "${preset.width} × ${preset.height} px · ${preset.dpi} DPI · ${preset.category}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showNewDocument = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showColorPicker) {
