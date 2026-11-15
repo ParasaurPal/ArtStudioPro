@@ -257,6 +257,27 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    /** Renders visible layers into a new export bitmap without changing the document. */
+    fun renderComposite(backgroundColor: Int? = null): Bitmap {
+        val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
+        val outputCanvas = Canvas(output)
+        backgroundColor?.let { outputCanvas.drawColor(it) }
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        layers.filter { it.isVisible }.forEach { layer ->
+            paint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
+            paint.xfermode = when (layer.blendMode) {
+                BlendMode.MULTIPLY -> PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
+                BlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+                BlendMode.OVERLAY -> PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
+                BlendMode.NORMAL -> null
+            }
+            outputCanvas.drawBitmap(layer.bitmap, 0f, 0f, paint)
+        }
+        paint.xfermode = null
+        paint.alpha = 255
+        return output
+    }
+
     fun addImageLayer(bitmap: Bitmap, name: String = "Imported image") {
         val layer = ArtLayer(name = name, width = documentWidth, height = documentHeight)
         val scale = min(documentWidth.toFloat() / bitmap.width, documentHeight.toFloat() / bitmap.height)
