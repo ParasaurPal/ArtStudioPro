@@ -16,7 +16,7 @@ import android.view.View
 import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.engine.StrokePoint
 import com.artstudio.pro.core.model.ArtLayer
-import com.artstudio.pro.core.model.BlendMode
+import com.artstudio.pro.core.paint.FloodFill
 import kotlin.math.min
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
@@ -344,6 +344,28 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         paint.xfermode = null
         paint.alpha = 255
         return output
+    }
+
+    fun floodFillAt(x: Int, y: Int, color: Int, tolerance: Int = 18) {
+        val target = activeLayer
+        var before = emptyList<TileState>()
+        val bounds = FloodFill.fill(
+            bitmap = target.bitmap,
+            startX = x,
+            startY = y,
+            fillColor = color,
+            tolerance = tolerance,
+            preserveAlpha = target.isAlphaLocked,
+            beforeApply = { rect -> before = captureTiles(target, RectF(rect)) }
+        ) ?: return
+        if (before.isNotEmpty()) {
+            val after = captureTiles(target, RectF(bounds))
+            redoHistory.forEach(::releaseChange)
+            redoHistory.clear()
+            undoHistory.addLast(StrokeChange(target.id, before, after))
+            while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
+        }
+        invalidate()
     }
 
     fun addImageLayer(bitmap: Bitmap, name: String = "Imported image") {
