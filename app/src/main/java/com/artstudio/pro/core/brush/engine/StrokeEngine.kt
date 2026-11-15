@@ -9,6 +9,7 @@ import kotlin.math.hypot
 data class StrokePoint(val x: Float, val y: Float, val pressure: Float)
 
 class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLACK) {
+    var eraserMode: Boolean = false
     private var lastX = 0f
     private var lastY = 0f
     private var targetX = 0f
@@ -29,7 +30,6 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         targetX = point.x
         targetY = point.y
         lastPressure = point.pressure
-
         val smoothing = brush.streamline.coerceIn(0f, 0.95f)
         val factor = 1f - smoothing
         val currentX = lastX + (point.x - lastX) * factor
@@ -39,7 +39,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         lastY = currentY
     }
 
-    /** Flushes the smoothed tail so a stroke ends exactly at the user's final touch. */
+    /** Flushes the smoothed tail so a stroke ends exactly at the final input point. */
     fun finishStroke(canvas: Canvas) {
         drawSegment(canvas, lastX, lastY, targetX, targetY, lastPressure)
         lastX = targetX
@@ -58,7 +58,6 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val dy = toY - fromY
         val distance = hypot(dx, dy)
         if (distance <= 0.001f) return
-
         val spacing = brush.spacing.coerceIn(0.01f, 2f)
         val step = (brush.baseSize * spacing).coerceAtLeast(1f)
         var travelled = step
@@ -76,8 +75,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val diameter = brush.baseSize.coerceAtLeast(1f) *
             (brush.minSizeRatio.coerceIn(0f, 1f) +
                 (1f - brush.minSizeRatio.coerceIn(0f, 1f)) * pressureSize)
-
-        paint.color = activeColor
+        paint.color = if (eraserMode) Color.WHITE else activeColor
         paint.alpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
             brush.flow.coerceIn(0f, 1f)).toInt().coerceIn(0, 255)
         canvas.drawCircle(x, y, diameter / 2f, paint)
