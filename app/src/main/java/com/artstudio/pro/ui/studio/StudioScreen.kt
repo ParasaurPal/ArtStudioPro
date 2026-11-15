@@ -56,6 +56,7 @@ fun StudioScreen() {
     var horizontalSymmetry by remember { mutableStateOf(false) }
     var showGrid by remember { mutableStateOf(false) }
     var layerOpacity by remember { mutableFloatStateOf(1f) }
+    var alphaLocked by remember { mutableStateOf(false) }
     var selectedBlendMode by remember { mutableStateOf(BlendMode.NORMAL) }
     var blendMenuExpanded by remember { mutableStateOf(false) }
     var hexColor by remember { mutableStateOf("#000000") }
@@ -75,6 +76,7 @@ fun StudioScreen() {
     LaunchedEffect(layerRefresh, canvasView) {
         layerOpacity = canvasView?.activeLayer?.opacity ?: 1f
         selectedBlendMode = canvasView?.activeLayer?.blendMode ?: BlendMode.NORMAL
+        alphaLocked = canvasView?.activeLayer?.isAlphaLocked ?: false
     }
     val brush = remember { BrushDefinition("basic-ink", "Ink Pen", BrushMedium.INK_PEN) }
 
@@ -242,6 +244,11 @@ fun StudioScreen() {
                             layerRefresh++
                         }) { Text("Clear") }
                         TextButton(onClick = {
+                            alphaLocked = !alphaLocked
+                            canvasView?.activeLayer?.isAlphaLocked = alphaLocked
+                            layerRefresh++
+                        }) { Text(if (alphaLocked) "Alpha lock on" else "Alpha lock") }
+                        TextButton(onClick = {
                             canvasView?.moveActiveLayer((canvasView?.activeLayerIndex ?: 0) + 1)
                             layerRefresh++
                         }) { Text("Move up") }
@@ -305,6 +312,7 @@ fun StudioScreen() {
                                     canvasView?.selectLayer(index)
                                     layerOpacity = layer.opacity
                                     selectedBlendMode = layer.blendMode
+                                    alphaLocked = layer.isAlphaLocked
                                     layerRefresh++
                                 }
                             ) {
