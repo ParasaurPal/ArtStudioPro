@@ -35,7 +35,8 @@ object ProjectArchive {
         val width: Int,
         val height: Int,
         val layers: List<LayerManifest>,
-        val transparentBackground: Boolean = false
+        val transparentBackground: Boolean = false,
+        val dpi: Int = 72
     )
 
     @Serializable
@@ -52,7 +53,8 @@ object ProjectArchive {
         val width: Int,
         val height: Int,
         val layers: List<ArtLayer>,
-        val transparentBackground: Boolean
+        val transparentBackground: Boolean,
+        val dpi: Int
     )
 
     fun save(
@@ -60,9 +62,11 @@ object ProjectArchive {
         width: Int,
         height: Int,
         layers: List<ArtLayer>,
-        transparentBackground: Boolean = false
+        transparentBackground: Boolean = false,
+        dpi: Int = 72
     ) {
         require(width in 1..12000 && height in 1..12000) { "Project dimensions are outside the supported range." }
+        require(dpi in 1..2400) { "DPI must be between 1 and 2400." }
         require(layers.isNotEmpty() && layers.size <= 128) { "A project must contain between 1 and 128 layers." }
         require(width.toLong() * height.toLong() * layers.size.toLong() <= 100_000_000L) {
             "This project exceeds the safe memory budget for saving."
@@ -75,6 +79,7 @@ object ProjectArchive {
             width = width,
             height = height,
             transparentBackground = transparentBackground,
+            dpi = dpi,
             layers = layers.mapIndexed { index, layer ->
                 LayerManifest(
                     file = "layers/layer_%03d.png".format(index),
@@ -178,6 +183,7 @@ object ProjectArchive {
                 bitmap.recycle()
             }
         }
-        return LoadedProject(manifest.width, manifest.height, loadedLayers, manifest.transparentBackground)
+        require(manifest.dpi in 1..2400) { "The project DPI value is invalid." }
+        return LoadedProject(manifest.width, manifest.height, loadedLayers, manifest.transparentBackground, manifest.dpi)
     }
 }
