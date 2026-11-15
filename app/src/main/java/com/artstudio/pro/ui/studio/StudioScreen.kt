@@ -52,6 +52,7 @@ fun StudioScreen() {
     var eraserMode by remember { mutableStateOf(false) }
     var verticalSymmetry by remember { mutableStateOf(false) }
     var horizontalSymmetry by remember { mutableStateOf(false) }
+    var showGrid by remember { mutableStateOf(false) }
     var layerOpacity by remember { mutableFloatStateOf(1f) }
     var selectedBlendMode by remember { mutableStateOf(BlendMode.NORMAL) }
     var blendMenuExpanded by remember { mutableStateOf(false) }
@@ -203,6 +204,11 @@ fun StudioScreen() {
                             canvasView?.strokeEngine?.symmetryHorizontal = horizontalSymmetry
                         }) { Text(if (horizontalSymmetry) "Horizontal symmetry on" else "Horizontal symmetry") }
                         TextButton(onClick = {
+                            showGrid = !showGrid
+                            canvasView?.showGrid = showGrid
+                            canvasView?.invalidate()
+                        }) { Text(if (showGrid) "Grid on" else "Grid") }
+                        TextButton(onClick = {
                             canvasView?.addLayer()
                             layerRefresh++
                         }) { Text("New layer") }
@@ -299,6 +305,7 @@ fun StudioScreen() {
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
+                            showGrid = showGrid
                             strokeEngine = StrokeEngine(brush, activeColor).apply {
                                 symmetryCenterX = documentWidth / 2f
                                 symmetryCenterY = documentHeight / 2f
@@ -317,6 +324,7 @@ fun StudioScreen() {
                         view.strokeEngine?.eraserMode = eraserMode
                         view.strokeEngine?.symmetryVertical = verticalSymmetry
                         view.strokeEngine?.symmetryHorizontal = horizontalSymmetry
+                        view.showGrid = showGrid
                         view.strokeEngine?.symmetryCenterX = documentWidth / 2f
                         view.strokeEngine?.symmetryCenterY = documentHeight / 2f
                         canvasView = view
