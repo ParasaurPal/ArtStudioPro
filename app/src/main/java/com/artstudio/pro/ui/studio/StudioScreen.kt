@@ -58,6 +58,7 @@ fun StudioScreen() {
     var blendMenuExpanded by remember { mutableStateOf(false) }
     var hexColor by remember { mutableStateOf("#000000") }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
+    val gridVisible = showGrid
     LaunchedEffect(activeColor) { hexColor = String.format("#%06X", 0xFFFFFF and activeColor) }
     LaunchedEffect(layerRefresh, canvasView) {
         layerOpacity = canvasView?.activeLayer?.opacity ?: 1f
@@ -305,7 +306,7 @@ fun StudioScreen() {
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
-                            showGrid = showGrid
+                            showGrid = gridVisible
                             strokeEngine = StrokeEngine(brush, activeColor).apply {
                                 symmetryCenterX = documentWidth / 2f
                                 symmetryCenterY = documentHeight / 2f
