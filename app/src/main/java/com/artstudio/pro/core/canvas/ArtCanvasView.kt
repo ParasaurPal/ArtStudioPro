@@ -33,6 +33,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     var transparentBackground: Boolean = false
     var fillMode: Boolean = false
     var fillTolerance: Int = 18
+    var selectionMode: Boolean = false
+    var selectionBounds: RectF? = null
+        private set
+    private var selectionStartX = 0f
+    private var selectionStartY = 0f
+    private var isSelecting = false
+    private var clipboardBitmap: Bitmap? = null
 
     private val activeBitmap = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
     private val activeCanvas = Canvas(activeBitmap)
@@ -41,6 +48,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val layerPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val checkerPaint = Paint()
+    private val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(90, 170, 255)
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        pathEffect = android.graphics.DashPathEffect(floatArrayOf(10f, 7f), 0f)
+    }
     private val guidePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(90, 110, 150, 190)
         strokeWidth = 1f
@@ -231,6 +244,11 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             documentToView.mapPoints(line)
             canvas.drawLine(line[0], line[1], line[2], line[3], guidePaint)
         }
+        selectionBounds?.let { rect ->
+            val mapped = RectF(rect)
+            documentToView.mapRect(mapped)
+            canvas.drawRect(mapped, selectionPaint)
+        }
         canvas.restoreToCount(save)
     }
 
@@ -394,6 +412,61 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         return output
     }
 
+    private fun recordLayerChange(layer: ArtLayer, bounds: RectF, before: List<TileState>) {
+        if (before.isEmpty()) return
+        val after = captureTiles(layer, bounds)
+        redoHistory.forEach(::releaseChange)
+        redoHistory.clear()
+        undoHistory.addLast(StrokeChange(layer.id, before, after))
+        while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
+    }
+
+    fun selectAll() {
+        selectionBounds = RectF(0f, 0f, documentWidth.toFloat(), documentHeight.toFloat())
+        invalidate()
+    }
+
+    fun deselect() {
+        selectionBounds = null
+        invalidate()
+    }
+
+    fun copySelection(): Boolean {
+        val rect = selectionBounds ?: RectF(0f, 0f, documentWidth.toFloat(), documentHeight.toFloat())
+        val left = rect.left.toInt().coerceIn(0, documentWidth - 1)
+        val top = rect.top.toInt().coerceIn(0, documentHeight - 1)
+        val right = kotlin.math.ceil(rect.right).toInt().coerceIn(left + 1, documentWidth)
+        val bottom = kotlin.math.ceil(rect.bottom).toInt().coerceIn(top + 1, documentHeight)
+        clipboardBitmap?.recycle()
+        clipboardBitmap = Bitmap.createBitmap(activeLayer.bitmap, left, top, right - left, bottom - top)
+        return true
+    }
+
+    fun cutSelection(): Boolean {
+        if (!copySelection()) return false
+        val rect = selectionBounds ?: RectF(0f, 0f, documentWidth.toFloat(), documentHeight.toFloat())
+        val layer = activeLayer
+        val before = captureTiles(layer, rect)
+        val erasePaint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
+        layer.canvas.drawRect(rect, erasePaint)
+        recordLayerChange(layer, rect, before)
+        invalidate()
+        return true
+    }
+
+    fun pasteSelection(): Boolean {
+        val copied = clipboardBitmap ?: return false
+        val rect = selectionBounds
+        val left = rect?.left ?: (documentWidth - copied.width) / 2f
+        val top = rect?.top ?: (documentHeight - copied.height) / 2f
+        val layer = ArtLayer(name = "Pasted", width = documentWidth, height = documentHeight)
+        layer.canvas.drawBitmap(copied, left, top, null)
+        layers.add(layer)
+        activeLayerIndex = layers.lastIndex
+        invalidate()
+        return true
+    }
+
     fun floodFillAt(x: Int, y: Int, color: Int, tolerance: Int = 18) {
         val target = activeLayer
         var before = emptyList<TileState>()
@@ -525,6 +598,36 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 val point = documentPoint(event)
                 floodFillAt(point.x.toInt(), point.y.toInt(), strokeEngine?.activeColor ?: Color.BLACK, fillTolerance)
                 performClick()
+            }
+            return true
+        }
+        if (selectionMode) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    if (!viewportRect.contains(event.x, event.y)) return false
+                    val point = documentPoint(event)
+                    selectionStartX = point.x
+                    selectionStartY = point.y
+                    selectionBounds = RectF(point.x, point.y, point.x, point.y)
+                    isSelecting = true
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (isSelecting) {
+                        val point = documentPoint(event)
+                        selectionBounds = RectF(
+                            minOf(selectionStartX, point.x), minOf(selectionStartY, point.y),
+                            maxOf(selectionStartX, point.x), maxOf(selectionStartY, point.y)
+                        )
+                        invalidate()
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    isSelecting = false
+                    performClick()
+                    return true
+                }
             }
             return true
         }
