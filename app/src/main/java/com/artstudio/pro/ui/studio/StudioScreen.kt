@@ -124,8 +124,23 @@ fun StudioScreen() {
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) runCatching {
-            context.contentResolver.openInputStream(uri)?.use(BitmapFactory::decodeStream)
-                ?: error("Unable to read the selected image.")
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, bounds)
+            } ?: error("Unable to read the selected image.")
+            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "The selected file is not a supported image." }
+            val targetLimit = maxOf(documentWidth, documentHeight) * 2
+            var sampleSize = 1
+            while (bounds.outWidth / sampleSize > targetLimit || bounds.outHeight / sampleSize > targetLimit) {
+                sampleSize *= 2
+            }
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+            }
+            context.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, options)
+            } ?: error("Unable to decode the selected image.")
         }.onSuccess { bitmap ->
             canvasView?.addImageLayer(bitmap)
             bitmap.recycle()
