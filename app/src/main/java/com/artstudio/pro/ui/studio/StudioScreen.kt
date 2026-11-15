@@ -60,6 +60,7 @@ fun StudioScreen() {
     var renameText by remember { mutableStateOf("") }
     var eraserMode by remember { mutableStateOf(false) }
     var fillMode by remember { mutableStateOf(false) }
+    var selectionMode by remember { mutableStateOf(false) }
     var fillTolerance by remember { mutableFloatStateOf(18f) }
     var verticalSymmetry by remember { mutableStateOf(false) }
     var horizontalSymmetry by remember { mutableStateOf(false) }
@@ -247,9 +248,22 @@ fun StudioScreen() {
                         }
                         TextButton(onClick = {
                             fillMode = !fillMode
+                            if (fillMode) selectionMode = false
                             canvasView?.fillMode = fillMode
+                            canvasView?.selectionMode = selectionMode
                             canvasView?.fillTolerance = fillTolerance.toInt()
                         }) { Text(if (fillMode) "Bucket on" else "Bucket") }
+                        TextButton(onClick = {
+                            selectionMode = !selectionMode
+                            if (selectionMode) fillMode = false
+                            canvasView?.selectionMode = selectionMode
+                            canvasView?.fillMode = fillMode
+                        }) { Text(if (selectionMode) "Marquee on" else "Marquee") }
+                        TextButton(onClick = { canvasView?.selectAll(); layerRefresh++ }) { Text("Select all") }
+                        TextButton(onClick = { canvasView?.deselect(); layerRefresh++ }) { Text("Deselect") }
+                        TextButton(onClick = { canvasView?.copySelection() }) { Text("Copy") }
+                        TextButton(onClick = { canvasView?.cutSelection(); layerRefresh++ }) { Text("Cut") }
+                        TextButton(onClick = { canvasView?.pasteSelection(); layerRefresh++ }) { Text("Paste") }
                         TextButton(onClick = { canvasView?.undo(); layerRefresh++ }) { Text("Undo") }
                         TextButton(onClick = { canvasView?.redo(); layerRefresh++ }) { Text("Redo") }
                         TextButton(onClick = {
@@ -428,6 +442,7 @@ fun StudioScreen() {
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             showGrid = gridVisible
                             fillMode = fillModeEnabled
+                            selectionMode = selectionMode
                             fillTolerance = fillToleranceValue
                             transparentBackground = transparentPage
                             strokeEngine = StrokeEngine(brush, activeColor).apply {
@@ -451,6 +466,7 @@ fun StudioScreen() {
                         view.showGrid = showGrid
                         view.transparentBackground = transparentBackground
                         view.fillMode = fillMode
+                        view.selectionMode = selectionMode
                         view.fillTolerance = fillTolerance.toInt()
                         view.strokeEngine?.symmetryCenterX = documentWidth / 2f
                         view.strokeEngine?.symmetryCenterY = documentHeight / 2f
