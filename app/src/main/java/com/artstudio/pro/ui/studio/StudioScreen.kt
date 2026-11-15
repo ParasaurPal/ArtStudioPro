@@ -57,6 +57,7 @@ fun StudioScreen() {
     var verticalSymmetry by remember { mutableStateOf(false) }
     var horizontalSymmetry by remember { mutableStateOf(false) }
     var showGrid by remember { mutableStateOf(false) }
+    var transparentBackground by remember { mutableStateOf(false) }
     var layerOpacity by remember { mutableFloatStateOf(1f) }
     var alphaLocked by remember { mutableStateOf(false) }
     var selectedBlendMode by remember { mutableStateOf(BlendMode.NORMAL) }
@@ -88,7 +89,7 @@ fun StudioScreen() {
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
             context.contentResolver.openOutputStream(uri)?.use {
-                ProjectArchive.save(it, documentWidth, documentHeight, view.layers)
+                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, transparentBackground)
             } ?: error("Unable to open the selected file.")
         }.onSuccess {
             Toast.makeText(context, "Project saved", Toast.LENGTH_SHORT).show()
@@ -126,6 +127,7 @@ fun StudioScreen() {
                 ?: error("Unable to open the selected project.")
             input.use { ProjectArchive.load(it) }
         }.onSuccess { project ->
+            transparentBackground = project.transparentBackground
             if (project.width == documentWidth && project.height == documentHeight) {
                 canvasView?.replaceLayers(project.layers)
                 layerRefresh++
@@ -244,6 +246,11 @@ fun StudioScreen() {
                             canvasView?.showGrid = showGrid
                             canvasView?.invalidate()
                         }) { Text(if (showGrid) "Grid on" else "Grid") }
+                        TextButton(onClick = {
+                            transparentBackground = !transparentBackground
+                            canvasView?.transparentBackground = transparentBackground
+                            canvasView?.invalidate()
+                        }) { Text(if (transparentBackground) "Transparent page" else "White page") }
                         TextButton(onClick = {
                             canvasView?.addLayer()
                             layerRefresh++
@@ -364,6 +371,7 @@ fun StudioScreen() {
                     factory = { ctx ->
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             showGrid = gridVisible
+                            transparentBackground = transparentBackground
                             strokeEngine = StrokeEngine(brush, activeColor).apply {
                                 symmetryCenterX = documentWidth / 2f
                                 symmetryCenterY = documentHeight / 2f
@@ -383,6 +391,7 @@ fun StudioScreen() {
                         view.strokeEngine?.symmetryVertical = verticalSymmetry
                         view.strokeEngine?.symmetryHorizontal = horizontalSymmetry
                         view.showGrid = showGrid
+                        view.transparentBackground = transparentBackground
                         view.strokeEngine?.symmetryCenterX = documentWidth / 2f
                         view.strokeEngine?.symmetryCenterY = documentHeight / 2f
                         canvasView = view
