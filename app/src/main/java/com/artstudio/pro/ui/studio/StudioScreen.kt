@@ -71,6 +71,8 @@ fun StudioScreen() {
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
     val gridVisible = showGrid
     val transparentPage = transparentBackground
+    val fillModeEnabled = fillMode
+    val fillToleranceValue = fillTolerance.toInt()
     LaunchedEffect(activeColor) {
         hexColor = String.format("#%06X", 0xFFFFFF and activeColor)
         val hsv = FloatArray(3)
@@ -386,8 +388,8 @@ fun StudioScreen() {
                     factory = { ctx ->
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             showGrid = gridVisible
-                            fillMode = fillMode
-                            fillTolerance = fillTolerance.toInt()
+                            fillMode = fillModeEnabled
+                            fillTolerance = fillToleranceValue
                             transparentBackground = transparentPage
                             strokeEngine = StrokeEngine(brush, activeColor).apply {
                                 symmetryCenterX = documentWidth / 2f
