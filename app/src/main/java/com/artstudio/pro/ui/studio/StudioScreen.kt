@@ -59,9 +59,19 @@ fun StudioScreen() {
     var selectedBlendMode by remember { mutableStateOf(BlendMode.NORMAL) }
     var blendMenuExpanded by remember { mutableStateOf(false) }
     var hexColor by remember { mutableStateOf("#000000") }
+    var hue by remember { mutableFloatStateOf(0f) }
+    var saturation by remember { mutableFloatStateOf(0f) }
+    var brightness by remember { mutableFloatStateOf(0f) }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
     val gridVisible = showGrid
-    LaunchedEffect(activeColor) { hexColor = String.format("#%06X", 0xFFFFFF and activeColor) }
+    LaunchedEffect(activeColor) {
+        hexColor = String.format("#%06X", 0xFFFFFF and activeColor)
+        val hsv = FloatArray(3)
+        AColor.colorToHSV(activeColor, hsv)
+        hue = hsv[0]
+        saturation = hsv[1]
+        brightness = hsv[2]
+    }
     LaunchedEffect(layerRefresh, canvasView) {
         layerOpacity = canvasView?.activeLayer?.opacity ?: 1f
         selectedBlendMode = canvasView?.activeLayer?.blendMode ?: BlendMode.NORMAL
@@ -430,6 +440,21 @@ fun StudioScreen() {
             title = { Text("Color") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Hue", color = MaterialTheme.colorScheme.onSurface)
+                    Slider(value = hue, onValueChange = {
+                        hue = it
+                        activeColor = AColor.HSVToColor(floatArrayOf(hue, saturation, brightness))
+                    }, valueRange = 0f..360f)
+                    Text("Saturation", color = MaterialTheme.colorScheme.onSurface)
+                    Slider(value = saturation, onValueChange = {
+                        saturation = it
+                        activeColor = AColor.HSVToColor(floatArrayOf(hue, saturation, brightness))
+                    }, valueRange = 0f..1f)
+                    Text("Brightness", color = MaterialTheme.colorScheme.onSurface)
+                    Slider(value = brightness, onValueChange = {
+                        brightness = it
+                        activeColor = AColor.HSVToColor(floatArrayOf(hue, saturation, brightness))
+                    }, valueRange = 0f..1f)
                     OutlinedTextField(
                         value = hexColor,
                         onValueChange = { hexColor = it.take(9) },
