@@ -287,6 +287,29 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    fun flipCanvas(horizontal: Boolean, vertical: Boolean) {
+        layers.forEach { layer ->
+            val transformed = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
+            val transformCanvas = Canvas(transformed)
+            transformCanvas.save()
+            transformCanvas.scale(
+                if (horizontal) -1f else 1f,
+                if (vertical) -1f else 1f,
+                documentWidth / 2f,
+                documentHeight / 2f
+            )
+            transformCanvas.drawBitmap(layer.bitmap, 0f, 0f, null)
+            transformCanvas.restore()
+            layer.clear()
+            layer.canvas.drawBitmap(transformed, 0f, 0f, null)
+            transformed.recycle()
+        }
+        clearHistory()
+        invalidate()
+    }
+
+    fun rotateCanvas180() = flipCanvas(horizontal = true, vertical = true)
+
     fun mergeActiveLayerDown() {
         if (activeLayerIndex <= 0) return
         val upper = activeLayer
