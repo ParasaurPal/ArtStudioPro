@@ -34,7 +34,8 @@ object ProjectArchive {
         val version: Int = 1,
         val width: Int,
         val height: Int,
-        val layers: List<LayerManifest>
+        val layers: List<LayerManifest>,
+        val transparentBackground: Boolean = false
     )
 
     @Serializable
@@ -50,10 +51,17 @@ object ProjectArchive {
     data class LoadedProject(
         val width: Int,
         val height: Int,
-        val layers: List<ArtLayer>
+        val layers: List<ArtLayer>,
+        val transparentBackground: Boolean
     )
 
-    fun save(output: OutputStream, width: Int, height: Int, layers: List<ArtLayer>) {
+    fun save(
+        output: OutputStream,
+        width: Int,
+        height: Int,
+        layers: List<ArtLayer>,
+        transparentBackground: Boolean = false
+    ) {
         require(width in 1..12000 && height in 1..12000) { "Project dimensions are outside the supported range." }
         require(layers.isNotEmpty() && layers.size <= 128) { "A project must contain between 1 and 128 layers." }
         require(width.toLong() * height.toLong() * layers.size.toLong() <= 80_000_000L) {
@@ -66,6 +74,7 @@ object ProjectArchive {
         val manifest = ProjectManifest(
             width = width,
             height = height,
+            transparentBackground = transparentBackground,
             layers = layers.mapIndexed { index, layer ->
                 LayerManifest(
                     file = "layers/layer_%03d.png".format(index),
@@ -169,6 +178,6 @@ object ProjectArchive {
                 bitmap.recycle()
             }
         }
-        return LoadedProject(manifest.width, manifest.height, loadedLayers)
+        return LoadedProject(manifest.width, manifest.height, loadedLayers, manifest.transparentBackground)
     }
 }
