@@ -353,12 +353,17 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val targetLayer = activeLayer
         val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds) else emptyList()
         if (strokeEngine?.eraserMode == true) {
-            val erasePaint = Paint().apply {
-                xfermode = android.graphics.PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+            if (!targetLayer.isAlphaLocked) {
+                val erasePaint = Paint().apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+                }
+                targetLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, erasePaint)
             }
-            activeLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, erasePaint)
         } else {
-            activeLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, null)
+            val paint = if (targetLayer.isAlphaLocked) {
+                Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP) }
+            } else null
+            targetLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, paint)
         }
         activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
         if (before.isNotEmpty()) {
