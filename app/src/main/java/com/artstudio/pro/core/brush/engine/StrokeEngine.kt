@@ -7,6 +7,8 @@ import android.graphics.RectF
 import com.artstudio.pro.core.brush.model.BrushDefinition
 import kotlin.math.hypot
 import kotlin.math.sin
+import kotlin.math.cos
+import kotlin.math.PI
 
 data class StrokePoint(
     val x: Float,
@@ -21,6 +23,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
     var eraserMode: Boolean = false
     var symmetryVertical: Boolean = false
     var symmetryHorizontal: Boolean = false
+    var radialSymmetryCount: Int = 1
     var symmetryCenterX: Float = 0f
     var symmetryCenterY: Float = 0f
     private var lastX = 0f
@@ -109,12 +112,24 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val tilt = tiltRadians.coerceIn(0f, 1.5708f)
         val radiusX = diameter / 2f
         val radiusY = radiusX * (1f - sin(tilt) * 0.65f).coerceIn(0.35f, 1f)
-        val points = linkedSetOf<Pair<Float, Float>>()
-        points.add(x to y)
-        if (symmetryVertical) points.add((2f * symmetryCenterX - x) to y)
-        if (symmetryHorizontal) points.add(x to (2f * symmetryCenterY - y))
+        val basePoints = linkedSetOf<Pair<Float, Float>>()
+        basePoints.add(x to y)
+        if (symmetryVertical) basePoints.add((2f * symmetryCenterX - x) to y)
+        if (symmetryHorizontal) basePoints.add(x to (2f * symmetryCenterY - y))
         if (symmetryVertical && symmetryHorizontal) {
-            points.add((2f * symmetryCenterX - x) to (2f * symmetryCenterY - y))
+            basePoints.add((2f * symmetryCenterX - x) to (2f * symmetryCenterY - y))
+        }
+        val points = linkedSetOf<Pair<Float, Float>>()
+        val radialCount = radialSymmetryCount.coerceIn(1, 16)
+        basePoints.forEach { (baseX, baseY) ->
+            val dx = baseX - symmetryCenterX
+            val dy = baseY - symmetryCenterY
+            for (index in 0 until radialCount) {
+                val angle = (2.0 * PI * index / radialCount)
+                val rotatedX = symmetryCenterX + dx * cos(angle).toFloat() - dy * sin(angle).toFloat()
+                val rotatedY = symmetryCenterY + dx * sin(angle).toFloat() + dy * cos(angle).toFloat()
+                points.add(rotatedX to rotatedY)
+            }
         }
         points.forEach { (px, py) ->
             val oval = RectF(px - radiusX, py - radiusY, px + radiusX, py + radiusY)
