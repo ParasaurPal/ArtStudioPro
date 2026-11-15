@@ -305,6 +305,9 @@ fun StudioScreen() {
                             canvasView?.mergeVisibleLayers()
                             layerRefresh++
                         }) { Text("Merge visible") }
+                        TextButton(onClick = { canvasView?.flipCanvas(horizontal = true, vertical = false); layerRefresh++ }) { Text("Flip H") }
+                        TextButton(onClick = { canvasView?.flipCanvas(horizontal = false, vertical = true); layerRefresh++ }) { Text("Flip V") }
+                        TextButton(onClick = { canvasView?.rotateCanvas180(); layerRefresh++ }) { Text("Rotate 180°") }
                         TextButton(onClick = {
                             renameText = canvasView?.activeLayer?.name.orEmpty()
                             showRenameDialog = true
