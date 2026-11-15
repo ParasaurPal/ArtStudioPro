@@ -50,6 +50,8 @@ fun StudioScreen() {
     var showColorPicker by remember { mutableStateOf(false) }
     var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
+    var verticalSymmetry by remember { mutableStateOf(false) }
+    var horizontalSymmetry by remember { mutableStateOf(false) }
     var layerOpacity by remember { mutableFloatStateOf(1f) }
     var selectedBlendMode by remember { mutableStateOf(BlendMode.NORMAL) }
     var blendMenuExpanded by remember { mutableStateOf(false) }
@@ -193,6 +195,14 @@ fun StudioScreen() {
                             canvasView?.strokeEngine?.eraserMode = eraserMode
                         }) { Text(if (eraserMode) "Eraser on" else "Eraser") }
                         TextButton(onClick = {
+                            verticalSymmetry = !verticalSymmetry
+                            canvasView?.strokeEngine?.symmetryVertical = verticalSymmetry
+                        }) { Text(if (verticalSymmetry) "Vertical symmetry on" else "Vertical symmetry") }
+                        TextButton(onClick = {
+                            horizontalSymmetry = !horizontalSymmetry
+                            canvasView?.strokeEngine?.symmetryHorizontal = horizontalSymmetry
+                        }) { Text(if (horizontalSymmetry) "Horizontal symmetry on" else "Horizontal symmetry") }
+                        TextButton(onClick = {
                             canvasView?.addLayer()
                             layerRefresh++
                         }) { Text("New layer") }
@@ -289,7 +299,13 @@ fun StudioScreen() {
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
-                            strokeEngine = StrokeEngine(brush, activeColor)
+                            strokeEngine = StrokeEngine(brush, activeColor).apply {
+                                symmetryCenterX = documentWidth / 2f
+                                symmetryCenterY = documentHeight / 2f
+                                symmetryVertical = verticalSymmetry
+                                symmetryHorizontal = horizontalSymmetry
+                                eraserMode = eraserMode
+                            }
                             pendingLayers?.let { replaceLayers(it) }
                             canvasView = this
                         }
@@ -299,6 +315,10 @@ fun StudioScreen() {
                         view.strokeEngine?.brush = brush
                         view.strokeEngine?.activeColor = activeColor
                         view.strokeEngine?.eraserMode = eraserMode
+                        view.strokeEngine?.symmetryVertical = verticalSymmetry
+                        view.strokeEngine?.symmetryHorizontal = horizontalSymmetry
+                        view.strokeEngine?.symmetryCenterX = documentWidth / 2f
+                        view.strokeEngine?.symmetryCenterY = documentHeight / 2f
                         canvasView = view
                     }
                 )
