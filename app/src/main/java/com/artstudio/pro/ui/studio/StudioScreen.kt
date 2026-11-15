@@ -49,6 +49,8 @@ fun StudioScreen() {
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showNewDocument by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var renameText by remember { mutableStateOf("") }
     var eraserMode by remember { mutableStateOf(false) }
     var verticalSymmetry by remember { mutableStateOf(false) }
     var horizontalSymmetry by remember { mutableStateOf(false) }
@@ -229,6 +231,22 @@ fun StudioScreen() {
                             canvasView?.clearActiveLayer()
                             layerRefresh++
                         }) { Text("Clear") }
+                        TextButton(onClick = {
+                            canvasView?.moveActiveLayer((canvasView?.activeLayerIndex ?: 0) + 1)
+                            layerRefresh++
+                        }) { Text("Move up") }
+                        TextButton(onClick = {
+                            canvasView?.moveActiveLayer((canvasView?.activeLayerIndex ?: 0) - 1)
+                            layerRefresh++
+                        }) { Text("Move down") }
+                        TextButton(onClick = {
+                            canvasView?.mergeVisibleLayers()
+                            layerRefresh++
+                        }) { Text("Merge visible") }
+                        TextButton(onClick = {
+                            renameText = canvasView?.activeLayer?.name.orEmpty()
+                            showRenameDialog = true
+                        }) { Text("Rename") }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Opacity", color = Color.White, style = MaterialTheme.typography.labelSmall)
@@ -333,6 +351,31 @@ fun StudioScreen() {
                 )
             }
         }
+    }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename layer") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    label = { Text("Layer name") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    canvasView?.renameActiveLayer(renameText)
+                    layerRefresh++
+                    showRenameDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showNewDocument) {
