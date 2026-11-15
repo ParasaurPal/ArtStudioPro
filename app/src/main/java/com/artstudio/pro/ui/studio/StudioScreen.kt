@@ -68,6 +68,7 @@ fun StudioScreen() {
     var brightness by remember { mutableFloatStateOf(0f) }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
     val gridVisible = showGrid
+    val transparentPage = transparentBackground
     LaunchedEffect(activeColor) {
         hexColor = String.format("#%06X", 0xFFFFFF and activeColor)
         val hsv = FloatArray(3)
@@ -371,7 +372,7 @@ fun StudioScreen() {
                     factory = { ctx ->
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             showGrid = gridVisible
-                            transparentBackground = transparentBackground
+                            transparentBackground = transparentPage
                             strokeEngine = StrokeEngine(brush, activeColor).apply {
                                 symmetryCenterX = documentWidth / 2f
                                 symmetryCenterY = documentHeight / 2f
