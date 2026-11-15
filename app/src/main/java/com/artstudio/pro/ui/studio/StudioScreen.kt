@@ -64,6 +64,7 @@ fun StudioScreen() {
     var fillTolerance by remember { mutableFloatStateOf(18f) }
     var verticalSymmetry by remember { mutableStateOf(false) }
     var horizontalSymmetry by remember { mutableStateOf(false) }
+    var radialSymmetryCount by remember { mutableIntStateOf(1) }
     var showGrid by remember { mutableStateOf(false) }
     var transparentBackground by remember { mutableStateOf(false) }
     var layerOpacity by remember { mutableFloatStateOf(1f) }
@@ -79,6 +80,7 @@ fun StudioScreen() {
     val transparentPage = transparentBackground
     val fillModeEnabled = fillMode
     val selectionModeEnabled = selectionMode
+    val radialSymmetry = radialSymmetryCount
     val fillToleranceValue = fillTolerance.toInt()
     LaunchedEffect(activeColor) {
         hexColor = String.format("#%06X", 0xFFFFFF and activeColor)
@@ -302,6 +304,16 @@ fun StudioScreen() {
                             canvasView?.strokeEngine?.symmetryHorizontal = horizontalSymmetry
                         }) { Text(if (horizontalSymmetry) "Horizontal symmetry on" else "Horizontal symmetry") }
                         TextButton(onClick = {
+                            radialSymmetryCount = when (radialSymmetryCount) {
+                                1 -> 4
+                                4 -> 8
+                                8 -> 12
+                                12 -> 16
+                                else -> 1
+                            }
+                            canvasView?.strokeEngine?.radialSymmetryCount = radialSymmetryCount
+                        }) { Text("Radial ×$radialSymmetryCount") }
+                        TextButton(onClick = {
                             showGrid = !showGrid
                             canvasView?.showGrid = showGrid
                             canvasView?.invalidate()
@@ -473,6 +485,7 @@ fun StudioScreen() {
                                 symmetryCenterY = documentHeight / 2f
                                 symmetryVertical = verticalSymmetry
                                 symmetryHorizontal = horizontalSymmetry
+                                radialSymmetryCount = radialSymmetry
                                 eraserMode = eraserMode
                             }
                             pendingLayers?.let { replaceLayers(it) }
@@ -486,6 +499,7 @@ fun StudioScreen() {
                         view.strokeEngine?.eraserMode = eraserMode
                         view.strokeEngine?.symmetryVertical = verticalSymmetry
                         view.strokeEngine?.symmetryHorizontal = horizontalSymmetry
+                        view.strokeEngine?.radialSymmetryCount = radialSymmetryCount
                         view.showGrid = showGrid
                         view.transparentBackground = transparentBackground
                         view.fillMode = fillMode
