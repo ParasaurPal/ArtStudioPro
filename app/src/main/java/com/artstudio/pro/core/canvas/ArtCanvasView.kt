@@ -8,6 +8,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.Rect
 import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.View
@@ -36,6 +37,83 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private val viewToDocument = Matrix()
     private val documentToView = Matrix()
     private var transformReady = false
+
+    private data class TileState(val x: Int, val y: Int, val bitmap: Bitmap)
+    private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>)
+    private val undoHistory = ArrayDeque<StrokeChange>()
+    private val redoHistory = ArrayDeque<StrokeChange>()
+    private val dirtyBounds = RectF()
+    private var hasDirtyBounds = false
+    private val undoTileSize = 128
+    private val maxUndoEntries = 20
+
+    val canUndo: Boolean get() = undoHistory.isNotEmpty()
+    val canRedo: Boolean get() = redoHistory.isNotEmpty()
+
+    private fun captureTiles(layer: ArtLayer, bounds: RectF): List<TileState> {
+        val dirty = Rect()
+        bounds.roundOut(dirty)
+        val left = (dirty.left.coerceAtLeast(0) / undoTileSize) * undoTileSize
+        val top = (dirty.top.coerceAtLeast(0) / undoTileSize) * undoTileSize
+        val right = dirty.right.coerceAtMost(documentWidth)
+        val bottom = dirty.bottom.coerceAtMost(documentHeight)
+        val result = mutableListOf<TileState>()
+        var y = top
+        while (y < bottom) {
+            var x = left
+            val tileBottom = (y + undoTileSize).coerceAtMost(documentHeight)
+            while (x < right) {
+                val tileRight = (x + undoTileSize).coerceAtMost(documentWidth)
+                result += TileState(x, y, Bitmap.createBitmap(layer.bitmap, x, y, tileRight - x, tileBottom - y))
+                x += undoTileSize
+            }
+            y += undoTileSize
+        }
+        return result
+    }
+
+    private fun restoreTiles(layer: ArtLayer, tiles: List<TileState>) {
+        val paint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC) }
+        tiles.forEach { tile -> layer.canvas.drawBitmap(tile.bitmap, tile.x.toFloat(), tile.y.toFloat(), paint) }
+    }
+
+    private fun releaseChange(change: StrokeChange) {
+        (change.before + change.after).forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+    }
+
+    private fun trackDirty(point: StrokePoint) {
+        val radius = (strokeEngine?.brush?.baseSize ?: 1f) / 2f + 3f
+        val next = RectF(point.x - radius, point.y - radius, point.x + radius, point.y + radius)
+        if (hasDirtyBounds) dirtyBounds.union(next) else {
+            dirtyBounds.set(next)
+            hasDirtyBounds = true
+        }
+    }
+
+    fun undo() {
+        val change = undoHistory.pollLast() ?: return
+        val layer = layers.firstOrNull { it.id == change.layerId }
+        if (layer == null) { releaseChange(change); return }
+        restoreTiles(layer, change.before)
+        redoHistory.addLast(change)
+        invalidate()
+    }
+
+    fun redo() {
+        val change = redoHistory.pollLast() ?: return
+        val layer = layers.firstOrNull { it.id == change.layerId }
+        if (layer == null) { releaseChange(change); return }
+        restoreTiles(layer, change.after)
+        undoHistory.addLast(change)
+        invalidate()
+    }
+
+    private fun clearHistory() {
+        undoHistory.forEach(::releaseChange)
+        redoHistory.forEach(::releaseChange)
+        undoHistory.clear()
+        redoHistory.clear()
+    }
 
     private fun updateTransform() {
         if (width <= 0 || height <= 0) return
@@ -175,6 +253,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layers.clear()
         layers.addAll(newLayers)
         activeLayerIndex = layers.lastIndex
+        clearHistory()
         invalidate()
     }
 
@@ -203,6 +282,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     private fun commitStroke() {
         strokeEngine?.finishStroke(activeCanvas)
+        val targetLayer = activeLayer
+        val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds) else emptyList()
         if (strokeEngine?.eraserMode == true) {
             val erasePaint = Paint().apply {
                 xfermode = android.graphics.PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
@@ -212,6 +293,15 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             activeLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, null)
         }
         activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        if (before.isNotEmpty()) {
+            val after = captureTiles(targetLayer, dirtyBounds)
+            redoHistory.forEach(::releaseChange)
+            redoHistory.clear()
+            undoHistory.addLast(StrokeChange(targetLayer.id, before, after))
+            while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
+        }
+        dirtyBounds.setEmpty()
+        hasDirtyBounds = false
         parent?.requestDisallowInterceptTouchEvent(false)
         invalidate()
     }
@@ -223,12 +313,18 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             MotionEvent.ACTION_DOWN -> {
                 if (!viewportRect.contains(event.x, event.y)) return false
                 parent?.requestDisallowInterceptTouchEvent(true)
-                strokeEngine?.startStroke(documentPoint(event), activeCanvas)
+                val point = documentPoint(event)
+                dirtyBounds.setEmpty()
+                hasDirtyBounds = false
+                trackDirty(point)
+                strokeEngine?.startStroke(point, activeCanvas)
                 invalidate()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                strokeEngine?.continueStroke(documentPoint(event), activeCanvas)
+                val point = documentPoint(event)
+                trackDirty(point)
+                strokeEngine?.continueStroke(point, activeCanvas)
                 invalidate()
                 return true
             }
