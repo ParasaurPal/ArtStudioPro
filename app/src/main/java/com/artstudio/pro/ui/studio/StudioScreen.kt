@@ -27,6 +27,7 @@ import com.artstudio.pro.core.brush.model.BrushDefinition
 import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.model.ArtLayer
+import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
 
@@ -49,7 +50,16 @@ fun StudioScreen() {
     var showColorPicker by remember { mutableStateOf(false) }
     var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
+    var layerOpacity by remember { mutableFloatStateOf(1f) }
+    var selectedBlendMode by remember { mutableStateOf(BlendMode.NORMAL) }
+    var blendMenuExpanded by remember { mutableStateOf(false) }
+    var hexColor by remember { mutableStateOf("#000000") }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
+    LaunchedEffect(activeColor) { hexColor = String.format("#%06X", 0xFFFFFF and activeColor) }
+    LaunchedEffect(layerRefresh, canvasView) {
+        layerOpacity = canvasView?.activeLayer?.opacity ?: 1f
+        selectedBlendMode = canvasView?.activeLayer?.blendMode ?: BlendMode.NORMAL
+    }
     val brush = remember { BrushDefinition("basic-ink", "Ink Pen", BrushMedium.INK_PEN) }
 
     val saveProject = rememberLauncherForActivityResult(
@@ -188,6 +198,39 @@ fun StudioScreen() {
                             layerRefresh++
                         }) { Text("Clear") }
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Opacity", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(
+                            value = layerOpacity,
+                            onValueChange = {
+                                layerOpacity = it
+                                canvasView?.activeLayer?.opacity = it
+                                canvasView?.invalidate()
+                            },
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                        )
+                        Box {
+                            TextButton(onClick = { blendMenuExpanded = true }) {
+                                Text(selectedBlendMode.name.replace('_', ' '), color = Color.White)
+                            }
+                            DropdownMenu(
+                                expanded = blendMenuExpanded,
+                                onDismissRequest = { blendMenuExpanded = false }
+                            ) {
+                                BlendMode.values().forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(mode.name.replace('_', ' ')) },
+                                        onClick = {
+                                            selectedBlendMode = mode
+                                            canvasView?.activeLayer?.blendMode = mode
+                                            canvasView?.invalidate()
+                                            blendMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         contentPadding = PaddingValues(vertical = 4.dp)
@@ -200,6 +243,8 @@ fun StudioScreen() {
                                 shape = MaterialTheme.shapes.small,
                                 modifier = Modifier.clickable {
                                     canvasView?.selectLayer(index)
+                                    layerOpacity = layer.opacity
+                                    selectedBlendMode = layer.blendMode
                                     layerRefresh++
                                 }
                             ) {
@@ -298,6 +343,18 @@ fun StudioScreen() {
             title = { Text("Color") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = hexColor,
+                        onValueChange = { hexColor = it.take(9) },
+                        label = { Text("Hex color") },
+                        singleLine = true
+                    )
+                    TextButton(onClick = {
+                        runCatching { AColor.parseColor(hexColor) }.onSuccess {
+                            activeColor = it
+                            showColorPicker = false
+                        }
+                    }) { Text("Apply hex") }
                     studioPalette.chunked(4).forEach { rowColors ->
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             rowColors.forEach { color ->
