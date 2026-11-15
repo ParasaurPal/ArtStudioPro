@@ -54,6 +54,8 @@ fun StudioScreen() {
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
     var eraserMode by remember { mutableStateOf(false) }
+    var fillMode by remember { mutableStateOf(false) }
+    var fillTolerance by remember { mutableFloatStateOf(18f) }
     var verticalSymmetry by remember { mutableStateOf(false) }
     var horizontalSymmetry by remember { mutableStateOf(false) }
     var showGrid by remember { mutableStateOf(false) }
@@ -203,6 +205,13 @@ fun StudioScreen() {
                             Icon(Icons.Default.ColorLens, "Choose color", tint = Color(activeColor))
                         }
                     }
+                    if (fillMode) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Fill tolerance", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                            Slider(value = fillTolerance, onValueChange = { fillTolerance = it }, valueRange = 0f..128f, modifier = Modifier.weight(1f))
+                            Text(fillTolerance.toInt().toString(), color = Color.White)
+                        }
+                    }
                     Text("Layers (${canvasView?.layers?.size ?: 0}) · ${layerRefresh}", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -228,6 +237,11 @@ fun StudioScreen() {
                                 }
                             }
                         }
+                        TextButton(onClick = {
+                            fillMode = !fillMode
+                            canvasView?.fillMode = fillMode
+                            canvasView?.fillTolerance = fillTolerance.toInt()
+                        }) { Text(if (fillMode) "Bucket on" else "Bucket") }
                         TextButton(onClick = { canvasView?.undo(); layerRefresh++ }) { Text("Undo") }
                         TextButton(onClick = { canvasView?.redo(); layerRefresh++ }) { Text("Redo") }
                         TextButton(onClick = {
@@ -372,6 +386,8 @@ fun StudioScreen() {
                     factory = { ctx ->
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             showGrid = gridVisible
+                            fillMode = fillMode
+                            fillTolerance = fillTolerance.toInt()
                             transparentBackground = transparentPage
                             strokeEngine = StrokeEngine(brush, activeColor).apply {
                                 symmetryCenterX = documentWidth / 2f
@@ -393,6 +409,8 @@ fun StudioScreen() {
                         view.strokeEngine?.symmetryHorizontal = horizontalSymmetry
                         view.showGrid = showGrid
                         view.transparentBackground = transparentBackground
+                        view.fillMode = fillMode
+                        view.fillTolerance = fillTolerance.toInt()
                         view.strokeEngine?.symmetryCenterX = documentWidth / 2f
                         view.strokeEngine?.symmetryCenterY = documentHeight / 2f
                         canvasView = view
