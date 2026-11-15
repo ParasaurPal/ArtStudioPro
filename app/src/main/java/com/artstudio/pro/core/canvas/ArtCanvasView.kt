@@ -28,6 +28,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     val activeLayer: ArtLayer get() = layers[activeLayerIndex.coerceIn(0, layers.lastIndex)]
     var strokeEngine: StrokeEngine? = null
+    var showGrid: Boolean = false
+    var gridSpacing: Int = 128
 
     private val activeBitmap = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
     private val activeCanvas = Canvas(activeBitmap)
@@ -35,6 +37,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private val viewportRect = RectF()
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val layerPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val guidePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(90, 110, 150, 190)
+        strokeWidth = 1f
+    }
     private val viewToDocument = Matrix()
     private val documentToView = Matrix()
     private var transformReady = false
@@ -178,6 +184,35 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layerPaint.xfermode = null
         layerPaint.alpha = 255
         canvas.drawBitmap(activeBitmap, null, viewportRect, bitmapPaint)
+        if (showGrid) {
+            val fitScale = min(width.toFloat() / documentWidth, height.toFloat() / documentHeight)
+            val effectiveScale = fitScale * zoomScale
+            val spacing = if (effectiveScale >= 4f) 1 else gridSpacing.coerceAtLeast(1)
+            var x = 0
+            while (x <= documentWidth) {
+                val line = floatArrayOf(x.toFloat(), 0f, x.toFloat(), documentHeight.toFloat())
+                documentToView.mapPoints(line)
+                canvas.drawLine(line[0], line[1], line[2], line[3], guidePaint)
+                x += spacing
+            }
+            var y = 0
+            while (y <= documentHeight) {
+                val line = floatArrayOf(0f, y.toFloat(), documentWidth.toFloat(), y.toFloat())
+                documentToView.mapPoints(line)
+                canvas.drawLine(line[0], line[1], line[2], line[3], guidePaint)
+                y += spacing
+            }
+        }
+        if (strokeEngine?.symmetryVertical == true) {
+            val line = floatArrayOf(documentWidth / 2f, 0f, documentWidth / 2f, documentHeight.toFloat())
+            documentToView.mapPoints(line)
+            canvas.drawLine(line[0], line[1], line[2], line[3], guidePaint)
+        }
+        if (strokeEngine?.symmetryHorizontal == true) {
+            val line = floatArrayOf(0f, documentHeight / 2f, documentWidth.toFloat(), documentHeight / 2f)
+            documentToView.mapPoints(line)
+            canvas.drawLine(line[0], line[1], line[2], line[3], guidePaint)
+        }
         canvas.restoreToCount(save)
     }
 
