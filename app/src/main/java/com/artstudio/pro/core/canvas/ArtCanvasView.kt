@@ -308,6 +308,29 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    fun rotatedLayers90(clockwise: Boolean): List<ArtLayer> = layers.map { source ->
+        val rotated = ArtLayer(
+            name = source.name,
+            width = documentHeight,
+            height = documentWidth,
+            opacity = source.opacity,
+            isVisible = source.isVisible,
+            isAlphaLocked = source.isAlphaLocked,
+            blendMode = source.blendMode
+        )
+        rotated.canvas.save()
+        if (clockwise) {
+            rotated.canvas.translate(documentHeight.toFloat(), 0f)
+            rotated.canvas.rotate(90f)
+        } else {
+            rotated.canvas.translate(0f, documentWidth.toFloat())
+            rotated.canvas.rotate(-90f)
+        }
+        rotated.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
+        rotated.canvas.restore()
+        rotated
+    }
+
     fun rotateCanvas180() = flipCanvas(horizontal = true, vertical = true)
 
     fun mergeActiveLayerDown() {
