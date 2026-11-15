@@ -91,7 +91,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun undo() {
-        val change = undoHistory.pollLast() ?: return
+        val change = undoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
         restoreTiles(layer, change.before)
@@ -100,7 +100,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun redo() {
-        val change = redoHistory.pollLast() ?: return
+        val change = redoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
         restoreTiles(layer, change.after)
