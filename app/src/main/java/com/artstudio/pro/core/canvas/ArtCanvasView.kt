@@ -203,7 +203,14 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     private fun commitStroke() {
         strokeEngine?.finishStroke(activeCanvas)
-        activeLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, null)
+        if (strokeEngine?.eraserMode == true) {
+            val erasePaint = Paint().apply {
+                xfermode = android.graphics.PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+            }
+            activeLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, erasePaint)
+        } else {
+            activeLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, null)
+        }
         activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
         parent?.requestDisallowInterceptTouchEvent(false)
         invalidate()
