@@ -25,6 +25,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.model.BrushDefinition
 import com.artstudio.pro.core.brush.model.BrushMedium
+import com.artstudio.pro.core.brush.model.BrushPresets
 import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.BlendMode
@@ -41,7 +42,8 @@ private val studioPalette = listOf(
 @Composable
 fun StudioScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var brushSize by remember { mutableFloatStateOf(40f) }
+    var brushSize by remember { mutableFloatStateOf(5f) }
+    var brushMenuExpanded by remember { mutableStateOf(false) }
     var activeColor by remember { mutableIntStateOf(AColor.BLACK) }
     var documentWidth by remember { mutableIntStateOf(2048) }
     var documentHeight by remember { mutableIntStateOf(2048) }
@@ -78,7 +80,7 @@ fun StudioScreen() {
         selectedBlendMode = canvasView?.activeLayer?.blendMode ?: BlendMode.NORMAL
         alphaLocked = canvasView?.activeLayer?.isAlphaLocked ?: false
     }
-    val brush = remember { BrushDefinition("basic-ink", "Ink Pen", BrushMedium.INK_PEN) }
+    var brush by remember { mutableStateOf(BrushPresets.all.first { it.name == "G-Pen" }.create()) }
 
     val saveProject = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/x-artstudio-project")
@@ -204,6 +206,25 @@ fun StudioScreen() {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Box {
+                            TextButton(onClick = { brushMenuExpanded = true }) { Text(brush.name) }
+                            DropdownMenu(
+                                expanded = brushMenuExpanded,
+                                onDismissRequest = { brushMenuExpanded = false }
+                            ) {
+                                BrushPresets.all.forEach { preset ->
+                                    DropdownMenuItem(
+                                        text = { Text(preset.name) },
+                                        onClick = {
+                                            brush = preset.create()
+                                            brushSize = brush.baseSize
+                                            canvasView?.strokeEngine?.brush = brush
+                                            brushMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                         TextButton(onClick = { canvasView?.undo(); layerRefresh++ }) { Text("Undo") }
                         TextButton(onClick = { canvasView?.redo(); layerRefresh++ }) { Text("Redo") }
                         TextButton(onClick = {
