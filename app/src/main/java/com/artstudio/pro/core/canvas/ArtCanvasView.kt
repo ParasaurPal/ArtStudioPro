@@ -435,8 +435,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val rect = selectionBounds ?: RectF(0f, 0f, documentWidth.toFloat(), documentHeight.toFloat())
         val left = rect.left.toInt().coerceIn(0, documentWidth - 1)
         val top = rect.top.toInt().coerceIn(0, documentHeight - 1)
-        val right = kotlin.math.ceil(rect.right).toInt().coerceIn(left + 1, documentWidth)
-        val bottom = kotlin.math.ceil(rect.bottom).toInt().coerceIn(top + 1, documentHeight)
+        val right = kotlin.math.ceil(rect.right.toDouble()).toInt().coerceIn(left + 1, documentWidth)
+        val bottom = kotlin.math.ceil(rect.bottom.toDouble()).toInt().coerceIn(top + 1, documentHeight)
         clipboardBitmap?.recycle()
         clipboardBitmap = Bitmap.createBitmap(activeLayer.bitmap, left, top, right - left, bottom - top)
         return true
@@ -624,7 +624,18 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isSelecting) {
+                        val rect = selectionBounds
+                        if (rect != null) {
+                            rect.right = maxOf(rect.right, rect.left + 1f)
+                            rect.bottom = maxOf(rect.bottom, rect.top + 1f)
+                            rect.right = rect.right.coerceAtMost(documentWidth.toFloat())
+                            rect.bottom = rect.bottom.coerceAtMost(documentHeight.toFloat())
+                            selectionBounds = rect
+                        }
+                    }
                     isSelecting = false
+                    invalidate()
                     performClick()
                     return true
                 }
