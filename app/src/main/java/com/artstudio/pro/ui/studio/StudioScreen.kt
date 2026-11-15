@@ -78,6 +78,7 @@ fun StudioScreen() {
     val gridVisible = showGrid
     val transparentPage = transparentBackground
     val fillModeEnabled = fillMode
+    val selectionModeEnabled = selectionMode
     val fillToleranceValue = fillTolerance.toInt()
     LaunchedEffect(activeColor) {
         hexColor = String.format("#%06X", 0xFFFFFF and activeColor)
@@ -442,7 +443,7 @@ fun StudioScreen() {
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             showGrid = gridVisible
                             fillMode = fillModeEnabled
-                            selectionMode = selectionMode
+                            selectionMode = selectionModeEnabled
                             fillTolerance = fillToleranceValue
                             transparentBackground = transparentPage
                             strokeEngine = StrokeEngine(brush, activeColor).apply {
