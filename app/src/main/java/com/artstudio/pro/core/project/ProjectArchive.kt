@@ -64,7 +64,7 @@ object ProjectArchive {
     ) {
         require(width in 1..12000 && height in 1..12000) { "Project dimensions are outside the supported range." }
         require(layers.isNotEmpty() && layers.size <= 128) { "A project must contain between 1 and 128 layers." }
-        require(width.toLong() * height.toLong() * layers.size.toLong() <= 80_000_000L) {
+        require(width.toLong() * height.toLong() * layers.size.toLong() <= 100_000_000L) {
             "This project exceeds the safe memory budget for saving."
         }
         require(layers.all { it.width == width && it.height == height }) {
@@ -150,7 +150,7 @@ object ProjectArchive {
             "The project layer count is invalid."
         }
         val totalPixels = manifest.width.toLong() * manifest.height.toLong() * manifest.layers.size.toLong()
-        require(totalPixels <= 80_000_000L) {
+        require(totalPixels <= 100_000_000L) {
             "This project exceeds the safe memory budget for opening on this device."
         }
 
