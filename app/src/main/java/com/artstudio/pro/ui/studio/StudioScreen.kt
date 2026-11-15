@@ -315,6 +315,36 @@ fun StudioScreen() {
                         TextButton(onClick = { canvasView?.flipCanvas(horizontal = false, vertical = true); layerRefresh++ }) { Text("Flip V") }
                         TextButton(onClick = { canvasView?.rotateCanvas180(); layerRefresh++ }) { Text("Rotate 180°") }
                         TextButton(onClick = {
+                            canvasView?.let { view ->
+                                val rotated = view.rotatedLayers90(clockwise = true)
+                                val nextWidth = documentHeight
+                                val nextHeight = documentWidth
+                                if (nextWidth == documentWidth && nextHeight == documentHeight) {
+                                    view.replaceLayers(rotated)
+                                    layerRefresh++
+                                } else {
+                                    pendingLayers = rotated
+                                    documentWidth = nextWidth
+                                    documentHeight = nextHeight
+                                }
+                            }
+                        }) { Text("Rotate 90° CW") }
+                        TextButton(onClick = {
+                            canvasView?.let { view ->
+                                val rotated = view.rotatedLayers90(clockwise = false)
+                                val nextWidth = documentHeight
+                                val nextHeight = documentWidth
+                                if (nextWidth == documentWidth && nextHeight == documentHeight) {
+                                    view.replaceLayers(rotated)
+                                    layerRefresh++
+                                } else {
+                                    pendingLayers = rotated
+                                    documentWidth = nextWidth
+                                    documentHeight = nextHeight
+                                }
+                            }
+                        }) { Text("Rotate 90° CCW") }
+                        TextButton(onClick = {
                             renameText = canvasView?.activeLayer?.name.orEmpty()
                             showRenameDialog = true
                         }) { Text("Rename") }
