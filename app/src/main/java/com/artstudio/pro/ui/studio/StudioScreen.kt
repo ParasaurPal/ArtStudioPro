@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.model.BrushDefinition
+import com.artstudio.pro.core.brush.model.DynamicsCurve
 import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.brush.model.BrushPresets
 import com.artstudio.pro.core.canvas.ArtCanvasView
@@ -31,6 +32,8 @@ import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
+
+private fun Float.format(digits: Int) = "%.${digits}f".format(this)
 
 private val studioPalette = listOf(
     AColor.BLACK, AColor.WHITE, AColor.RED, AColor.rgb(255, 145, 0),
@@ -44,6 +47,9 @@ fun StudioScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
     var brushSize by remember { mutableFloatStateOf(5f) }
     var brushMenuExpanded by remember { mutableStateOf(false) }
+    var showDynamicsDialog by remember { mutableStateOf(false) }
+    var pressureLow by remember { mutableFloatStateOf(0.1f) }
+    var pressureHigh by remember { mutableFloatStateOf(1f) }
     var activeColor by remember { mutableIntStateOf(AColor.BLACK) }
     var documentWidth by remember { mutableIntStateOf(2048) }
     var documentHeight by remember { mutableIntStateOf(2048) }
@@ -96,6 +102,10 @@ fun StudioScreen() {
         alphaLocked = canvasView?.activeLayer?.isAlphaLocked ?: false
     }
     var brush by remember { mutableStateOf(BrushPresets.all.first { it.name == "G-Pen" }.create()) }
+    LaunchedEffect(brush) {
+        pressureLow = brush.sizeCurve.p1y
+        pressureHigh = brush.sizeCurve.p2y
+    }
 
     val saveProject = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/x-artstudio-project")
@@ -289,6 +299,7 @@ fun StudioScreen() {
                         TextButton(onClick = { canvasView?.copySelection() }) { Text("Copy") }
                         TextButton(onClick = { canvasView?.cutSelection(); layerRefresh++ }) { Text("Cut") }
                         TextButton(onClick = { canvasView?.pasteSelection(); layerRefresh++ }) { Text("Paste") }
+                        TextButton(onClick = { showDynamicsDialog = true }) { Text("Dynamics") }
                         TextButton(onClick = { canvasView?.undo(); layerRefresh++ }) { Text("Undo") }
                         TextButton(onClick = { canvasView?.redo(); layerRefresh++ }) { Text("Redo") }
                         TextButton(onClick = {
@@ -512,6 +523,30 @@ fun StudioScreen() {
                 )
             }
         }
+    }
+
+    if (showDynamicsDialog) {
+        AlertDialog(
+            onDismissRequest = { showDynamicsDialog = false },
+            title = { Text("Pressure response") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Light pressure response: ${pressureLow.format(2)}")
+                    Slider(value = pressureLow, onValueChange = {
+                        pressureLow = it
+                        brush.sizeCurve = DynamicsCurve(pressureLow, pressureHigh)
+                    }, valueRange = 0f..1f)
+                    Text("Firm pressure response: ${pressureHigh.format(2)}")
+                    Slider(value = pressureHigh, onValueChange = {
+                        pressureHigh = it
+                        brush.sizeCurve = DynamicsCurve(pressureLow, pressureHigh)
+                    }, valueRange = 0f..1f)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDynamicsDialog = false }) { Text("Done") }
+            }
+        )
     }
 
     if (showCustomCanvas) {
