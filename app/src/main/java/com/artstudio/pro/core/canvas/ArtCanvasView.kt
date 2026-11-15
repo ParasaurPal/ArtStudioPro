@@ -42,6 +42,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private var panX = 0f
     private var panY = 0f
     private var isPanning = false
+    private var suppressSinglePointer = false
     private var lastFocusX = 0f
     private var lastFocusY = 0f
     private val scaleDetector = ScaleGestureDetector(context,
@@ -357,12 +358,24 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         if (!transformReady) updateTransform()
         if (!transformReady) return false
         scaleDetector.onTouchEvent(event)
+        if (suppressSinglePointer) {
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                suppressSinglePointer = false
+                parent?.requestDisallowInterceptTouchEvent(false)
+            }
+            return true
+        }
         if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
             if (!isPanning) commitStroke()
             isPanning = true
             lastFocusX = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
             lastFocusY = (0 until event.pointerCount).map { event.getY(it) }.average().toFloat()
             parent?.requestDisallowInterceptTouchEvent(true)
+            return true
+        }
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
+            isPanning = false
+            suppressSinglePointer = true
             return true
         }
         if (isPanning && event.pointerCount >= 2) {
@@ -376,11 +389,6 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 updateTransform()
                 invalidate()
             }
-            return true
-        }
-        if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
-            isPanning = false
-            parent?.requestDisallowInterceptTouchEvent(false)
             return true
         }
         if (isPanning) {
