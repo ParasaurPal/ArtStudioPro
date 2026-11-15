@@ -10,7 +10,7 @@ This file records what is actually implemented in the current feature/full-art-s
 - Image import as a new editable raster layer, with oversized images downsampled before decoding.
 - Native .asp project archives containing a JSON manifest and lossless PNG data for each layer.
 - Project reopen restores document dimensions, layer order, visibility, opacity, alpha lock, blend mode, and transparent-page setting.
-- Transparent-page checkerboard preview and transparent/white PNG export.
+- Transparent-page checkerboard preview, transparent/white PNG export, and JPEG export with white compositing.
 - Raster layer add, duplicate, delete, rename, reorder, clear, visibility, opacity, alpha lock, merge-down, and merge-visible operations.
 - 27 named layer blend modes, using Android's blend pipeline on API 29+ and a reduced legacy fallback on older Android versions. Several advanced modes map to the nearest supported Android operation and are approximations.
 - Bounded tile-based stroke undo/redo (128 px tiles, 20 stroke entries).
@@ -35,7 +35,7 @@ This file records what is actually implemented in the current feature/full-art-s
 - Pixel-identical behavior for every advanced blend mode on every supported Android API level.
 - RGB/CMYK/ICC color workflows, palette extraction/management, gradient and pattern editors.
 - Filter/effect suite, comic panels, speech bubbles, screentones, typography tools, animation timeline, onion skinning, MP4/GIF export, and time-lapse recording.
-- PSD import/export, JPEG/WEBP/TIFF/BMP/PDF export, batch export, printing, and native share-sheet integration.
+- PSD import/export, WEBP/TIFF/BMP/PDF export, batch export, printing, and native share-sheet integration.
 - Automated tests and a verified APK from this branch.
 
 ## Build policy
