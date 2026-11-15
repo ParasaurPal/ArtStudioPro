@@ -109,6 +109,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 parent?.requestDisallowInterceptTouchEvent(false)
                 invalidate()
                 return true
+            }
         }
         return true
     }
