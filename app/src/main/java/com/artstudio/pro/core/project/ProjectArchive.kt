@@ -54,8 +54,11 @@ object ProjectArchive {
     )
 
     fun save(output: OutputStream, width: Int, height: Int, layers: List<ArtLayer>) {
-        require(width > 0 && height > 0) { "Project dimensions must be positive." }
-        require(layers.isNotEmpty()) { "A project must contain at least one layer." }
+        require(width in 1..12000 && height in 1..12000) { "Project dimensions are outside the supported range." }
+        require(layers.isNotEmpty() && layers.size <= 128) { "A project must contain between 1 and 128 layers." }
+        require(width.toLong() * height.toLong() * layers.size.toLong() <= 80_000_000L) {
+            "This project exceeds the safe memory budget for saving."
+        }
         require(layers.all { it.width == width && it.height == height }) {
             "All layers must match the project dimensions."
         }
