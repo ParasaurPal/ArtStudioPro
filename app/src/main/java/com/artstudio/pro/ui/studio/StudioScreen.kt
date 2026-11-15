@@ -71,9 +71,14 @@ fun StudioScreen() {
                 ?: error("Unable to open the selected project.")
             input.use { ProjectArchive.load(it) }
         }.onSuccess { project ->
-            pendingLayers = project.layers
-            documentWidth = project.width
-            documentHeight = project.height
+            if (project.width == documentWidth && project.height == documentHeight) {
+                canvasView?.replaceLayers(project.layers)
+                layerRefresh++
+            } else {
+                pendingLayers = project.layers
+                documentWidth = project.width
+                documentHeight = project.height
+            }
             Toast.makeText(context, "Project opened", Toast.LENGTH_SHORT).show()
         }.onFailure {
             Toast.makeText(context, "Open failed: ${it.message}", Toast.LENGTH_LONG).show()
