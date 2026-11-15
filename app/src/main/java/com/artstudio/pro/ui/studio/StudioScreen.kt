@@ -138,6 +138,8 @@ fun StudioScreen() {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        TextButton(onClick = { canvasView?.undo(); layerRefresh++ }) { Text("Undo") }
+                        TextButton(onClick = { canvasView?.redo(); layerRefresh++ }) { Text("Redo") }
                         TextButton(onClick = {
                             eraserMode = !eraserMode
                             canvasView?.strokeEngine?.eraserMode = eraserMode
