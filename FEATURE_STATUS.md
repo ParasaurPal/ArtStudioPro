@@ -15,7 +15,7 @@ This file records what is actually implemented in the current feature/full-art-s
 - 27 named layer blend modes, using Android's blend pipeline on API 29+ and a reduced legacy fallback on older Android versions. Several advanced modes map to the nearest supported Android operation and are approximations.
 - Bounded tile-based stroke undo/redo (128 px tiles, 20 stroke entries).
 - Pressure-responsive stamp brush engine, stylus tilt/azimuth stamp shaping, and 10 configurable starter brush presets.
-- Eraser mode, horizontal/vertical symmetry, grid overlay, and high-zoom pixel grid.
+- Eraser mode, horizontal/vertical and up-to-16-fold radial symmetry, grid overlay, and high-zoom pixel grid.
 - Pinch zoom and two-finger pan.
 - Tolerance-based four-connected flood fill with undo snapshots.
 - Rectangular marquee selection, select-all/deselect, active-layer copy/cut, and paste-to-new-layer.
@@ -29,7 +29,7 @@ This file records what is actually implemented in the current feature/full-art-s
 - GPU-native OpenGL/Vulkan rendering pipeline, offscreen GPU layer compositing, 120 FPS guarantees, and latency instrumentation.
 - Full stylus/finger mapping, pressure curve editor, velocity dynamics, palm rejection, custom gestures, keyboard mapping, and radial menus.
 - Full textured brush engine, imported tips, grain, jitter, scatter, dual brushes, wet-media physics, impasto, brush folders, sharing, and QR brush exchange.
-- Paper texture library, custom paper import, radial/kaleidoscope symmetry, rulers, Bezier guides, perspective grids, and shape snapping.
+- Paper texture library, custom paper import, kaleidoscope reflection symmetry, rulers, Bezier guides, perspective grids, and shape snapping.
 - Vector/text layers, groups, clipping masks, layer masks, reference layers, and sample-all-layers fill.
 - Lasso/polygonal/magic-wand/color-range selection, boolean selection operations, selection feather/expand/outline, and transform/warp/mesh/liquify tools. Current marquee is rectangular; bucket is four-connected and active-layer only.
 - Pixel-identical behavior for every advanced blend mode on every supported Android API level.
