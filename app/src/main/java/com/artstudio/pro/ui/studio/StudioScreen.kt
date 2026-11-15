@@ -66,6 +66,27 @@ fun StudioScreen() {
         }
     }
 
+    val exportPng = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/png")
+    ) { uri ->
+        if (uri != null) runCatching {
+            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite()
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)) {
+                        "PNG encoding failed."
+                    }
+                } ?: error("Unable to open the selected file.")
+            } finally {
+                bitmap.recycle()
+            }
+        }.onSuccess {
+            Toast.makeText(context, "PNG exported", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            Toast.makeText(context, "Export failed: ${it.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     val openProject = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -112,6 +133,7 @@ fun StudioScreen() {
                     TextButton(onClick = { openProject.launch(arrayOf("*/*")) }) { Text("Open", color = Color.White) }
                     TextButton(onClick = { importImage.launch(arrayOf("image/*")) }) { Text("Image", color = Color.White) }
                     TextButton(onClick = { saveProject.launch("Artwork.asp") }) { Text("Save", color = Color.White) }
+                    TextButton(onClick = { exportPng.launch("Artwork.png") }) { Text("PNG", color = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1E1E1E))
             )
