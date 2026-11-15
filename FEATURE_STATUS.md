@@ -18,6 +18,7 @@ This file records what is actually implemented in the current feature/full-art-s
 - Eraser mode, horizontal/vertical symmetry, grid overlay, and high-zoom pixel grid.
 - Pinch zoom and two-finger pan.
 - Tolerance-based four-connected flood fill with undo snapshots.
+- Rectangular marquee selection, select-all/deselect, active-layer copy/cut, and paste-to-new-layer.
 - Whole-document horizontal/vertical flip and 90/180-degree rotation.
 - Project archive size and decoded bitmap budgets to reduce malformed-file and memory-exhaustion risk.
 
@@ -30,7 +31,7 @@ This file records what is actually implemented in the current feature/full-art-s
 - Full textured brush engine, imported tips, grain, jitter, scatter, dual brushes, wet-media physics, impasto, brush folders, sharing, and QR brush exchange.
 - Paper texture library, custom paper import, radial/kaleidoscope symmetry, rulers, Bezier guides, perspective grids, and shape snapping.
 - Vector/text layers, groups, clipping masks, layer masks, reference layers, and sample-all-layers fill.
-- Advanced fill modes, selections, lasso operations, transform/warp/mesh/liquify tools. Current bucket is four-connected and active-layer only.
+- Lasso/polygonal/magic-wand/color-range selection, boolean selection operations, selection feather/expand/outline, and transform/warp/mesh/liquify tools. Current marquee is rectangular; bucket is four-connected and active-layer only.
 - Pixel-identical behavior for every advanced blend mode on every supported Android API level.
 - RGB/CMYK/ICC color workflows, palette extraction/management, gradient and pattern editors.
 - Filter/effect suite, comic panels, speech bubbles, screentones, typography tools, animation timeline, onion skinning, MP4/GIF export, and time-lapse recording.
