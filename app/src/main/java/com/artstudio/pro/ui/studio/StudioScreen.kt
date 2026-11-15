@@ -45,6 +45,7 @@ fun StudioScreen() {
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
+    var eraserMode by remember { mutableStateOf(false) }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
     val brush = remember { BrushDefinition("basic-ink", "Ink Pen", BrushMedium.INK_PEN) }
 
@@ -128,11 +129,16 @@ fun StudioScreen() {
                             Icon(Icons.Default.ColorLens, "Choose color", tint = Color(activeColor))
                         }
                     }
+                    Text("Layers (${canvasView?.layers?.size ?: 0}) · ${layerRefresh}", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        TextButton(onClick = {
+                            eraserMode = !eraserMode
+                            canvasView?.strokeEngine?.eraserMode = eraserMode
+                        }) { Text(if (eraserMode) "Eraser on" else "Eraser") }
                         TextButton(onClick = {
                             canvasView?.addLayer()
                             layerRefresh++
@@ -204,6 +210,7 @@ fun StudioScreen() {
                         brush.baseSize = brushSize
                         view.strokeEngine?.brush = brush
                         view.strokeEngine?.activeColor = activeColor
+                        view.strokeEngine?.eraserMode = eraserMode
                         canvasView = view
                     }
                 )
