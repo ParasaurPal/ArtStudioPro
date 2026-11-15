@@ -10,6 +10,10 @@ data class StrokePoint(val x: Float, val y: Float, val pressure: Float)
 
 class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLACK) {
     var eraserMode: Boolean = false
+    var symmetryVertical: Boolean = false
+    var symmetryHorizontal: Boolean = false
+    var symmetryCenterX: Float = 0f
+    var symmetryCenterY: Float = 0f
     private var lastX = 0f
     private var lastY = 0f
     private var targetX = 0f
@@ -78,6 +82,14 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         paint.color = if (eraserMode) Color.WHITE else activeColor
         paint.alpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
             brush.flow.coerceIn(0f, 1f)).toInt().coerceIn(0, 255)
-        canvas.drawCircle(x, y, diameter / 2f, paint)
+
+        val points = linkedSetOf<Pair<Float, Float>>()
+        points.add(x to y)
+        if (symmetryVertical) points.add((2f * symmetryCenterX - x) to y)
+        if (symmetryHorizontal) points.add(x to (2f * symmetryCenterY - y))
+        if (symmetryVertical && symmetryHorizontal) {
+            points.add((2f * symmetryCenterX - x) to (2f * symmetryCenterY - y))
+        }
+        points.forEach { (px, py) -> canvas.drawCircle(px, py, diameter / 2f, paint) }
     }
 }
