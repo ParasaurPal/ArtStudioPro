@@ -30,6 +30,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     var strokeEngine: StrokeEngine? = null
     var showGrid: Boolean = false
     var gridSpacing: Int = 128
+    var transparentBackground: Boolean = false
 
     private val activeBitmap = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
     private val activeCanvas = Canvas(activeBitmap)
@@ -37,6 +38,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private val viewportRect = RectF()
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val layerPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val checkerPaint = Paint()
     private val guidePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(90, 110, 150, 190)
         strokeWidth = 1f
@@ -168,7 +170,26 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         if (!transformReady) updateTransform()
         canvas.drawColor(Color.rgb(34, 32, 38))
         if (!transformReady) return
-        canvas.drawRect(viewportRect, bitmapPaint.apply { color = Color.WHITE; alpha = 255 })
+        if (transparentBackground) {
+            val checkerSize = 24f
+            var row = 0
+            var y = viewportRect.top
+            while (y < viewportRect.bottom) {
+                var column = 0
+                var x = viewportRect.left
+                while (x < viewportRect.right) {
+                    checkerPaint.color = if ((row + column) % 2 == 0) Color.rgb(220, 220, 220) else Color.rgb(170, 170, 170)
+                    canvas.drawRect(x, y, (x + checkerSize).coerceAtMost(viewportRect.right),
+                        (y + checkerSize).coerceAtMost(viewportRect.bottom), checkerPaint)
+                    x += checkerSize
+                    column++
+                }
+                y += checkerSize
+                row++
+            }
+        } else {
+            canvas.drawRect(viewportRect, bitmapPaint.apply { color = Color.WHITE; alpha = 255 })
+        }
         val save = canvas.save()
         canvas.clipRect(viewportRect)
         layers.filter { it.isVisible }.forEach { layer ->
@@ -305,7 +326,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     /** Renders visible layers into a new export bitmap without changing the document. */
-    fun renderComposite(backgroundColor: Int? = null): Bitmap {
+    fun renderComposite(backgroundColor: Int? = if (transparentBackground) null else Color.WHITE): Bitmap {
         val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
         val outputCanvas = Canvas(output)
         backgroundColor?.let { outputCanvas.drawColor(it) }
