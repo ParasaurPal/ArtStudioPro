@@ -31,6 +31,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     var showGrid: Boolean = false
     var gridSpacing: Int = 128
     var transparentBackground: Boolean = false
+    var fillMode: Boolean = false
+    var fillTolerance: Int = 18
 
     private val activeBitmap = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
     private val activeCanvas = Canvas(activeBitmap)
@@ -469,6 +471,15 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         if (isPanning) {
             isPanning = false
             parent?.requestDisallowInterceptTouchEvent(false)
+            return true
+        }
+        if (fillMode) {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                if (!viewportRect.contains(event.x, event.y)) return false
+                val point = documentPoint(event)
+                floodFillAt(point.x.toInt(), point.y.toInt(), strokeEngine?.activeColor ?: Color.BLACK, fillTolerance)
+                performClick()
+            }
             return true
         }
         when (event.actionMasked) {
