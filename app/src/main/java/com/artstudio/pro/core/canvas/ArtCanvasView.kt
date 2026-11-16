@@ -27,7 +27,7 @@ import kotlin.math.min
 
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
-enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE }
+enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT }
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
@@ -74,6 +74,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     private var shapeStartX = 0f
     private var shapeStartY = 0f
+    var textToolContent: String = "Text"
+        private set
     val hasSelection: Boolean get() = selectionRect != null
     private var selectionRect: RectF? = null
     private var selectionIsEllipse = false
@@ -296,6 +298,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         playbackHandler.removeCallbacks(playbackRunnable)
     }
 
+    fun setTextToolContent(value: String) {
+        textToolContent = value.take(240).ifBlank { "Text" }
+    }
+
     fun setDrawingTool(tool: DrawingTool) {
         drawingTool = tool
         invalidate()
@@ -310,16 +316,38 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
         }
+        val left = minOf(shapeStartX, endX)
+        val top = minOf(shapeStartY, endY)
+        val right = maxOf(shapeStartX, endX)
+        val bottom = maxOf(shapeStartY, endY)
         when (drawingTool) {
             DrawingTool.LINE -> target.drawLine(shapeStartX, shapeStartY, endX, endY, shapePaint)
-            DrawingTool.RECTANGLE -> target.drawRect(
-                minOf(shapeStartX, endX), minOf(shapeStartY, endY),
-                maxOf(shapeStartX, endX), maxOf(shapeStartY, endY), shapePaint
-            )
-            DrawingTool.ELLIPSE -> target.drawOval(
-                minOf(shapeStartX, endX), minOf(shapeStartY, endY),
-                maxOf(shapeStartX, endX), maxOf(shapeStartY, endY), shapePaint
-            )
+            DrawingTool.RECTANGLE -> target.drawRect(left, top, right, bottom, shapePaint)
+            DrawingTool.ELLIPSE -> target.drawOval(left, top, right, bottom, shapePaint)
+            DrawingTool.PANEL -> {
+                shapePaint.strokeWidth = (engine.brush.baseSize * 0.18f).coerceAtLeast(4f)
+                target.drawRect(left, top, right, bottom, shapePaint)
+            }
+            DrawingTool.SPEECH_BALLOON -> {
+                val balloonBottom = (bottom - (bottom - top) * 0.18f).coerceAtLeast(top + 1f)
+                target.drawOval(left, top, right, balloonBottom, shapePaint)
+                val tail = Path().apply {
+                    moveTo(left + (right - left) * 0.22f, balloonBottom - 2f)
+                    lineTo(left + (right - left) * 0.12f, bottom)
+                    lineTo(left + (right - left) * 0.42f, balloonBottom - 2f)
+                    close()
+                }
+                target.drawPath(tail, shapePaint)
+            }
+            DrawingTool.TEXT -> {
+                val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = engine.activeColor
+                    textSize = engine.brush.baseSize.coerceAtLeast(12f) * 1.5f
+                    style = Paint.Style.FILL
+                    typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+                }
+                target.drawText(textToolContent, shapeStartX, shapeStartY, textPaint)
+            }
             DrawingTool.BRUSH -> Unit
         }
     }
