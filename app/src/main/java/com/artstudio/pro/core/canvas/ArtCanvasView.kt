@@ -746,7 +746,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             }
         }
         var clipBase: Bitmap? = null
-        layers.filter { it.isVisible }.forEach { layer ->
+        layers.filter { isLayerVisible(it) }.forEach { layer ->
             layerPaint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
             layer.blendMode.applyTo(layerPaint)
             layer.applyColorAdjustments(layerPaint)
@@ -1137,7 +1137,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             paperStrength
         )
         var clipBase: Bitmap? = null
-        sourceLayers.filter { it.isVisible }.forEach { layer ->
+        sourceLayers.filter { isLayerVisible(it) }.forEach { layer ->
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
                 xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
