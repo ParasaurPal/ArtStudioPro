@@ -161,7 +161,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     })
 
     private data class TileState(val x: Int, val y: Int, val bitmap: Bitmap)
-    private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>, val isMask: Boolean = false, val maskBeforePng: ByteArray? = null, val maskAfterPng: ByteArray? = null)
+    private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>, val isMask: Boolean = false, val maskBeforePng: ByteArray? = null, val maskAfterPng: ByteArray? = null, val bitmapBeforePng: ByteArray? = null, val bitmapAfterPng: ByteArray? = null, val vectorBefore: List<VectorPath>? = null, val vectorAfter: List<VectorPath>? = null)
     private val undoHistory = ArrayDeque<StrokeChange>()
     private val redoHistory = ArrayDeque<StrokeChange>()
     private val dirtyBounds = RectF()
@@ -205,6 +205,20 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         return output.toByteArray()
     }
 
+    private fun compressBitmap(bitmap: Bitmap): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        check(bitmap.compress(Bitmap.CompressFormat.PNG,100,output)) { "Could not snapshot layer pixels." }
+        return output.toByteArray()
+    }
+
+    private fun restoreBitmap(layer: ArtLayer, encoded: ByteArray) {
+        val decoded = BitmapFactory.decodeByteArray(encoded,0,encoded.size) ?: return
+        Canvas(layer.bitmap).drawBitmap(decoded,0f,0f,Paint().apply {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC)
+        })
+        decoded.recycle()
+    }
+
     private fun restoreMask(layer: ArtLayer, encoded: ByteArray) {
         val decoded = BitmapFactory.decodeByteArray(encoded, 0, encoded.size) ?: return
         val target = layer.ensureMask()
@@ -231,8 +245,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val change = undoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
-        if (change.maskBeforePng != null) restoreMask(layer, change.maskBeforePng)
+        if (change.bitmapBeforePng != null) restoreBitmap(layer, change.bitmapBeforePng)
+        else if (change.maskBeforePng != null) restoreMask(layer, change.maskBeforePng)
         else restoreTiles(layer, change.before, if (change.isMask) layer.ensureMask() else layer.bitmap)
+        change.vectorBefore?.let { layer.vectorPaths.clear(); layer.vectorPaths.addAll(it) }
         redoHistory.addLast(change)
         invalidate()
     }
@@ -241,8 +257,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val change = redoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
-        if (change.maskAfterPng != null) restoreMask(layer, change.maskAfterPng)
+        if (change.bitmapAfterPng != null) restoreBitmap(layer, change.bitmapAfterPng)
+        else if (change.maskAfterPng != null) restoreMask(layer, change.maskAfterPng)
         else restoreTiles(layer, change.after, if (change.isMask) layer.ensureMask() else layer.bitmap)
+        change.vectorAfter?.let { layer.vectorPaths.clear(); layer.vectorPaths.addAll(it) }
         undoHistory.addLast(change)
         invalidate()
     }
@@ -906,6 +924,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             canvas.drawBitmap(source, 0f, 0f, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
             return result
         }
+        val bitmapBefore = compressBitmap(layer.bitmap)
+        val maskBefore = layer.maskBitmap?.let(::compressMask)
+        val vectorsBefore = layer.vectorPaths.toList()
         val transformedPixels = transformed(layer.bitmap)
         layer.bitmap.eraseColor(Color.TRANSPARENT)
         layer.canvas.drawBitmap(transformedPixels, 0f, 0f, null)
@@ -932,6 +953,15 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             }
             layer.vectorPaths[pathIndex]=path.copy(nodes=nodes)
         }
+        val bitmapAfter = compressBitmap(layer.bitmap)
+        val maskAfter = layer.maskBitmap?.let(::compressMask)
+        val vectorsAfter = layer.vectorPaths.toList()
+        redoHistory.forEach(::releaseChange); redoHistory.clear()
+        undoHistory.addLast(StrokeChange(
+            layer.id, emptyList(), emptyList(), false,
+            maskBefore, maskAfter, bitmapBefore, bitmapAfter, vectorsBefore, vectorsAfter
+        ))
+        while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
         invalidate()
     }
 
