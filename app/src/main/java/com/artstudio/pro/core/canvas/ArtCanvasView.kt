@@ -24,6 +24,7 @@ import kotlin.math.min
 
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
+enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE }
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
@@ -48,6 +49,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var selectionMode: SelectionMode = SelectionMode.NONE
         private set
+    var drawingTool: DrawingTool = DrawingTool.BRUSH
+        private set
+    private var shapeStartX = 0f
+    private var shapeStartY = 0f
     val hasSelection: Boolean get() = selectionRect != null
     private var selectionRect: RectF? = null
     private var selectionIsEllipse = false
@@ -166,6 +171,34 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         redoHistory.forEach(::releaseChange)
         undoHistory.clear()
         redoHistory.clear()
+    }
+
+    fun setDrawingTool(tool: DrawingTool) {
+        drawingTool = tool
+        invalidate()
+    }
+
+    private fun drawShapePreview(target: Canvas, endX: Float, endY: Float) {
+        val engine = strokeEngine ?: return
+        val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = engine.activeColor
+            style = Paint.Style.STROKE
+            strokeWidth = engine.brush.baseSize.coerceAtLeast(1f)
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        when (drawingTool) {
+            DrawingTool.LINE -> target.drawLine(shapeStartX, shapeStartY, endX, endY, shapePaint)
+            DrawingTool.RECTANGLE -> target.drawRect(
+                minOf(shapeStartX, endX), minOf(shapeStartY, endY),
+                maxOf(shapeStartX, endX), maxOf(shapeStartY, endY), shapePaint
+            )
+            DrawingTool.ELLIPSE -> target.drawOval(
+                minOf(shapeStartX, endX), minOf(shapeStartY, endY),
+                maxOf(shapeStartX, endX), maxOf(shapeStartY, endY), shapePaint
+            )
+            DrawingTool.BRUSH -> Unit
+        }
     }
 
     fun setSelectionMode(mode: SelectionMode) {
@@ -508,7 +541,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private fun commitStroke() {
         if (!strokeActive) return
         strokeActive = false
-        strokeEngine?.finishStroke(activeCanvas)
+        if (drawingTool == DrawingTool.BRUSH) strokeEngine?.finishStroke(activeCanvas)
         symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.finishStroke(mirrorCanvas) }
         activeCanvasSaveCount?.let { activeCanvas.restoreToCount(it) }
         activeCanvasSaveCount = null
@@ -617,17 +650,28 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 trackDirty(point)
                 strokeActive = true
                 activeCanvasSaveCount = applySelectionClip(activeCanvas)
-                strokeEngine?.startStroke(point, activeCanvas)
-                prepareSymmetryEngines()
-                symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.startStroke(point, mirrorCanvas) }
+                if (drawingTool == DrawingTool.BRUSH) {
+                    strokeEngine?.startStroke(point, activeCanvas)
+                    prepareSymmetryEngines()
+                    symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.startStroke(point, mirrorCanvas) }
+                } else {
+                    shapeStartX = point.x
+                    shapeStartY = point.y
+                    drawShapePreview(activeCanvas, point.x, point.y)
+                }
                 invalidate()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 val point = documentPoint(event)
                 trackDirty(point)
-                strokeEngine?.continueStroke(point, activeCanvas)
-                symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.continueStroke(point, mirrorCanvas) }
+                if (drawingTool == DrawingTool.BRUSH) {
+                    strokeEngine?.continueStroke(point, activeCanvas)
+                    symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.continueStroke(point, mirrorCanvas) }
+                } else {
+                    activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+                    drawShapePreview(activeCanvas, point.x, point.y)
+                }
                 invalidate()
                 return true
             }
