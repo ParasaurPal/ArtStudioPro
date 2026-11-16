@@ -12,6 +12,8 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Xml
+import com.artstudio.pro.core.color.Cmyk
+import com.artstudio.pro.core.color.ColorManagement
 import org.xmlpull.v1.XmlPullParser
 import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
@@ -85,15 +87,25 @@ object ImportFormatReader {
         val width=tags[256]?.toInt()?:error("TIFF width missing.")
         val height=tags[257]?.toInt()?:error("TIFF height missing.")
         require(width in 1..16000&&height in 1..16000&&width.toLong()*height<=20_000_000L){"TIFF dimensions exceed the mobile limit."}
-        require(tags[259]==1L&&tags[262]==2L&&tags[277]==3L){"Unsupported TIFF compression or color model."}
+        val photometric=tags[262]?.toInt()?:error("TIFF color model missing.")
+        val samples=tags[277]?.toInt()?:error("TIFF channel count missing.")
+        require(tags[259]==1L&&((photometric==2&&samples==3)||(photometric==5&&samples==4))){"Unsupported TIFF compression or color model."}
         val bitsOffset=tags[258]?.toInt()?:error("TIFF bit depth missing.")
-        require(bitsOffset>=0&&bitsOffset+6<=data.size){"Invalid TIFF bit-depth data."}
-        require((b.getShort(bitsOffset).toInt() and 65535)==8&&(b.getShort(bitsOffset+2).toInt() and 65535)==8&&(b.getShort(bitsOffset+4).toInt() and 65535)==8){"Only 8-bit RGB TIFF is supported."}
+        require(bitsOffset>=0&&bitsOffset+samples*2<=data.size){"Invalid TIFF bit-depth data."}
+        repeat(samples){channel->require((b.getShort(bitsOffset+channel*2).toInt() and 65535)==8){"Only 8-bit RGB/CMYK TIFF is supported."}}
         val offset=tags[273]?.toInt()?:error("TIFF pixel offset missing.")
         val byteCount=tags[279]?.toLong()?:error("TIFF pixel data missing.")
-        require(offset>=0&&byteCount>=width.toLong()*height*3&&offset.toLong()+byteCount<=data.size){"TIFF pixel data is incomplete."}
+        require(offset>=0&&byteCount>=width.toLong()*height*samples&&offset.toLong()+byteCount<=data.size){"TIFF pixel data is incomplete."}
         val pixels=IntArray(width*height);var index=offset
-        for(i in pixels.indices){val r=data[index++].toInt() and 255;val g=data[index++].toInt() and 255;val blue=data[index++].toInt() and 255;pixels[i]=Color.rgb(r,g,blue)}
+        for(i in pixels.indices){
+            val a=data[index++].toInt() and 255;val g=data[index++].toInt() and 255
+            val third=data[index++].toInt() and 255
+            if(photometric==2) pixels[i]=Color.rgb(a,g,third)
+            else {
+                val k=data[index++].toInt() and 255
+                pixels[i]=ColorManagement.fromCmyk(Cmyk(a/255f,g/255f,third/255f,k/255f))
+            }
+        }
         return Bitmap.createBitmap(pixels,width,height,Bitmap.Config.ARGB_8888)
     }
 
