@@ -95,7 +95,10 @@ class TiledRasterStore(
     private fun evictIfNeeded(protected:Key){
         while(resident.size>maxResidentTiles){
             val first=resident.entries.firstOrNull{it.key!=protected}?:return
-            if(first.key in dirty)writeTile?.invoke(first.key.x,first.key.y,first.value)
+            if(first.key in dirty) {
+                val writer = writeTile ?: return
+                writer.invoke(first.key.x,first.key.y,first.value)
+            }
             dirty.remove(first.key)
             resident.remove(first.key)
             first.value.recycle()
