@@ -739,10 +739,21 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         canvas.clipRect(viewportRect)
         if (onionSkinEnabled && currentFrameIndex > 0) {
             val previousFrame = animationFrames[currentFrameIndex - 1]
-            val onionPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { alpha = 42 }
             previousFrame.layers.filter { isLayerVisible(it) }.forEach { previousLayer ->
-                val faded = Paint(onionPaint).apply { alpha = (previousLayer.opacity * 42f).toInt().coerceIn(0, 255) }
+                val faded = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                    alpha = (previousLayer.opacity * 42f).toInt().coerceIn(0, 255)
+                }
                 drawLayer(canvas, previousLayer, faded, viewportRect)
+            }
+        }
+        if (onionSkinEnabled && currentFrameIndex < animationFrames.lastIndex) {
+            val nextFrame = animationFrames[currentFrameIndex + 1]
+            nextFrame.layers.filter { isLayerVisible(it) }.forEach { nextLayer ->
+                val faded = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                    alpha = (nextLayer.opacity * 30f).toInt().coerceIn(0, 255)
+                    colorFilter = android.graphics.PorterDuffColorFilter(Color.CYAN, PorterDuff.Mode.SRC_ATOP)
+                }
+                drawLayer(canvas, nextLayer, faded, viewportRect)
             }
         }
         var clipBase: Bitmap? = null
