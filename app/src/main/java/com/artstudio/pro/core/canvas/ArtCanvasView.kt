@@ -206,6 +206,27 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    fun maskActiveLayerToSelection() {
+        val rect = selectionRect ?: return
+        val target = activeLayer
+        val before = captureTiles(target, rect)
+        val mask = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
+        val maskCanvas = Canvas(mask)
+        val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        if (selectionIsEllipse) maskCanvas.drawOval(rect, maskPaint)
+        else maskCanvas.drawRect(rect, maskPaint)
+        target.canvas.drawBitmap(mask, 0f, 0f, Paint().apply {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+        })
+        mask.recycle()
+        val after = captureTiles(target, rect)
+        redoHistory.forEach(::releaseChange)
+        redoHistory.clear()
+        undoHistory.addLast(StrokeChange(target.id, before, after))
+        while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
+        invalidate()
+    }
+
     fun clearSelection() {
         selectionRect = null
         selectionIsEllipse = false
