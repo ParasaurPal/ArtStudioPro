@@ -62,6 +62,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var showGrid: Boolean = false
         private set
+    var showRulers: Boolean = false
+        private set
     var gridSpacing: Int = 64
         private set
     var symmetryMode: SymmetryMode = SymmetryMode.NONE
@@ -427,6 +429,36 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    fun setRulers(enabled: Boolean) {
+        showRulers = enabled
+        invalidate()
+    }
+
+    private fun drawRulers(canvas: Canvas) {
+        if (!showRulers) return
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(220, 210, 235)
+            strokeWidth = 1f
+            textSize = 14f
+        }
+        var x = 0
+        while (x <= documentWidth) {
+            val viewX = viewportRect.left + viewportRect.width() * x / documentWidth
+            val major = x % 500 == 0
+            canvas.drawLine(viewX, viewportRect.top, viewX, viewportRect.top + if (major) 18f else 8f, paint)
+            if (major) canvas.drawText(x.toString(), viewX + 2f, viewportRect.top + 30f, paint)
+            x += 100
+        }
+        var y = 0
+        while (y <= documentHeight) {
+            val viewY = viewportRect.top + viewportRect.height() * y / documentHeight
+            val major = y % 500 == 0
+            canvas.drawLine(viewportRect.left, viewY, viewportRect.left + if (major) 18f else 8f, viewY, paint)
+            if (major && y > 0) canvas.drawText(y.toString(), viewportRect.left + 22f, viewY - 2f, paint)
+            y += 100
+        }
+    }
+
     fun setGrid(enabled: Boolean, spacing: Int = gridSpacing) {
         showGrid = enabled
         gridSpacing = spacing.coerceIn(8, 1024)
@@ -546,6 +578,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         canvas.restoreToCount(save)
         drawGrid(canvas)
         drawSelection(canvas)
+        drawRulers(canvas)
     }
 
     fun addLayer(name: String = "Layer ${layers.size}"): Boolean {
