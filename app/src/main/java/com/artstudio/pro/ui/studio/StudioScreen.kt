@@ -27,6 +27,7 @@ import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.model.BrushDefinition
 import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.brush.model.DynamicsSource
+import com.artstudio.pro.core.brush.model.DynamicsCurve
 import com.artstudio.pro.core.brush.model.BrushLibrary
 import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.canvas.SymmetryMode
@@ -77,6 +78,8 @@ fun StudioScreen() {
     var brushPigmentLoad by remember { mutableFloatStateOf(1f) }
     var brushBristles by remember { mutableFloatStateOf(3f) }
     var brushWetMixing by remember { mutableStateOf(false) }
+    var sizeCurveP1 by remember { mutableFloatStateOf(.1f) }
+    var sizeCurveP2 by remember { mutableFloatStateOf(1f) }
     var activeColor by remember { mutableIntStateOf(AColor.BLACK) }
     var documentWidth by remember { mutableIntStateOf(2048) }
     var documentHeight by remember { mutableIntStateOf(2048) }
@@ -532,6 +535,11 @@ fun StudioScreen() {
                         Slider(value = brushBristles, onValueChange = { brushBristles = it }, valueRange = 1f..48f, modifier = Modifier.weight(1f).padding(horizontal = 5.dp))
                         TextButton(onClick = { brushWetMixing = !brushWetMixing }) { Text(if (brushWetMixing) "Mix on" else "Mix off") }
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Pressure curve", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = sizeCurveP1, onValueChange = { sizeCurveP1 = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                        Slider(value = sizeCurveP2, onValueChange = { sizeCurveP2 = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                    }
                     Text("Layers (${canvasView?.layers?.size ?: 0}) · ${layerRefresh}", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -878,6 +886,7 @@ fun StudioScreen() {
                         brush.bristleCount = brushBristles.toInt()
                         brush.wetMixing = brushWetMixing
                         brush.sizeSource = dynamicsSource
+                        brush.sizeCurve = DynamicsCurve(sizeCurveP1, sizeCurveP2)
                         brush.opacitySource = opacityDynamicsSource
                         brush.tipMask = tipMask
                         view.strokeEngine?.brush = brush
