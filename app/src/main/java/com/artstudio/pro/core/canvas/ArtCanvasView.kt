@@ -1353,7 +1353,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 tileCanvas.translate(-left.toFloat(), -top.toFloat())
                 PaperTexture.draw(tileCanvas, documentRect, paperKind, paperStrength)
                 var clipBaseTile: Bitmap? = null
-                layers.filter { it.isVisible }.forEach { layer ->
+                layers.filter { isLayerVisible(it) }.forEach { layer ->
                     val layerTile = Bitmap.createBitmap(tileWidth, tileHeight, Bitmap.Config.ARGB_8888)
                     val layerCanvas = Canvas(layerTile)
                     layerCanvas.save()
