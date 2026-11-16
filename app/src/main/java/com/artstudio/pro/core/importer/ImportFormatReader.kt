@@ -23,7 +23,7 @@ object ImportFormatReader {
     fun decode(context:Context,uri:Uri):Bitmap {
         val mime=context.contentResolver.getType(uri)?.lowercase().orEmpty()
         val name=uri.lastPathSegment?.lowercase().orEmpty()
-        val bytes=if(mime.contains("photoshop")||mime.contains("tiff")||name.endsWith(".psd")||name.endsWith(".tif")||name.endsWith(".tiff")||mime.contains("svg")||name.endsWith(".svg")||mime=="application/octet-stream") {
+        val bytes=if(mime.contains("tiff")||name.endsWith(".psd")||name.endsWith(".tif")||name.endsWith(".tiff")||mime.contains("svg")||name.endsWith(".svg")||mime=="application/octet-stream"||(mime.startsWith("image/")&&!mime.contains("png")&&!mime.contains("jpeg")&&!mime.contains("webp"))) {
             context.contentResolver.openInputStream(uri)?.use{it.readBytes()}?:error("Unable to read file.")
         } else null
         val isPsd = name.endsWith(".psd") || bytes?.let { it.size>=4 && String(it,0,4,Charsets.US_ASCII)=="8BPS" } == true
