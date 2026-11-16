@@ -17,6 +17,10 @@ class PoseReferenceModel {
     var pitch=0f
     var zoom=1f
     var preset=PosePreset.NEUTRAL
+    private val jointOffsets=mutableMapOf<String,Vec3>()
+    val jointNames=listOf("head","neck","chest","spine","pelvis","leftShoulder","leftElbow","leftHand","rightShoulder","rightElbow","rightHand","leftHip","leftKnee","leftFoot","rightHip","rightKnee","rightFoot")
+    fun setJointOffset(name:String,dx:Float,dy:Float,dz:Float=0f){if(name in jointNames)jointOffsets[name]=Vec3(dx,dy,dz)}
+    fun clearJointOffsets(){jointOffsets.clear()}
     private val joints=linkedMapOf<String,Vec3>()
     private val bones=listOf(
         "pelvis" to "spine","spine" to "chest","chest" to "neck","neck" to "head",
@@ -47,6 +51,7 @@ class PoseReferenceModel {
             "rightHip" to Vec3(.22f,.05f,0f),"rightKnee" to Vec3(.28f+sin(rl)*.35f,.65f,0f),
             "rightFoot" to Vec3(.3f+sin(rl)*.55f,1.25f+cos(rk)*.2f,0f)
         )
+        jointOffsets.forEach{(name,offset)->result[name]?.let{v->result[name]=Vec3(v.x+offset.x,v.y+offset.y,v.z+offset.z)}}
         return result
     }
     fun draw(canvas:Canvas) {
