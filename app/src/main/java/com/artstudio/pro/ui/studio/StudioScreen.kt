@@ -102,6 +102,12 @@ fun StudioScreen() {
     var showTextContentDialog by remember { mutableStateOf(false) }
     var comicTextContent by remember { mutableStateOf("Text") }
     var showLayerAdjustments by remember { mutableStateOf(false) }
+    var showTransformDialog by remember { mutableStateOf(false) }
+    var transformScaleX by remember { mutableFloatStateOf(1f) }
+    var transformScaleY by remember { mutableFloatStateOf(1f) }
+    var transformRotation by remember { mutableFloatStateOf(0f) }
+    var transformOffsetX by remember { mutableFloatStateOf(0f) }
+    var transformOffsetY by remember { mutableFloatStateOf(0f) }
     var showFilterPicker by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf(ImageFilter.GRAYSCALE) }
     var filterAmount by remember { mutableFloatStateOf(1f) }
@@ -772,6 +778,9 @@ fun StudioScreen() {
                                     showRenameLayer = true
                                 }) { Text("Rename") }
                                 TextButton(onClick = { showLayerAdjustments = true }) { Text("Adjust") }
+                                TextButton(onClick = { showTransformDialog = true }) { Text("Transform") }
+                                TextButton(onClick = { canvasView?.transformActiveLayer(scaleX = -1f); layerRefresh++ }) { Text("Flip H") }
+                                TextButton(onClick = { canvasView?.transformActiveLayer(scaleY = -1f); layerRefresh++ }) { Text("Flip V") }
                                 TextButton(onClick = {
                                     selected.isAlphaLocked = !selected.isAlphaLocked
                                     layerRefresh++
@@ -1290,6 +1299,39 @@ fun StudioScreen() {
                 }) { Text("Create filter layer") }
             },
             dismissButton = { TextButton(onClick = { showFilterPicker = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showTransformDialog) {
+        AlertDialog(
+            onDismissRequest = { showTransformDialog = false },
+            title = { Text("Free transform layer") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("Scale X · ${(transformScaleX * 100).toInt()}%")
+                    Slider(value = transformScaleX, onValueChange = { transformScaleX = it }, valueRange = .1f..3f)
+                    Text("Scale Y · ${(transformScaleY * 100).toInt()}%")
+                    Slider(value = transformScaleY, onValueChange = { transformScaleY = it }, valueRange = .1f..3f)
+                    Text("Rotation · ${transformRotation.toInt()}°")
+                    Slider(value = transformRotation, onValueChange = { transformRotation = it }, valueRange = -180f..180f)
+                    Text("Horizontal offset · ${transformOffsetX.toInt()} px")
+                    Slider(value = transformOffsetX, onValueChange = { transformOffsetX = it }, valueRange = -documentWidth.toFloat()..documentWidth.toFloat())
+                    Text("Vertical offset · ${transformOffsetY.toInt()} px")
+                    Slider(value = transformOffsetY, onValueChange = { transformOffsetY = it }, valueRange = -documentHeight.toFloat()..documentHeight.toFloat())
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    canvasView?.transformActiveLayer(transformScaleX, transformScaleY, transformRotation, transformOffsetX, transformOffsetY)
+                    layerRefresh++
+                    showTransformDialog = false
+                    transformScaleX = 1f; transformScaleY = 1f; transformRotation = 0f; transformOffsetX = 0f; transformOffsetY = 0f
+                }) { Text("Apply") }
+            },
+            dismissButton = { TextButton(onClick = { showTransformDialog = false }) { Text("Cancel") } }
         )
     }
 
