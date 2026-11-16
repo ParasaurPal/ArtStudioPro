@@ -148,7 +148,9 @@ fun StudioScreen() {
             val rows = kotlin.math.ceil(view.frameCount.toDouble() / columns).toInt().coerceAtLeast(1)
             val scale = minOf(
                 1f,
-                kotlin.math.sqrt(20_000_000f / (documentWidth.toFloat() * documentHeight * view.frameCount))
+                kotlin.math.sqrt(20_000_000f / (documentWidth.toFloat() * documentHeight * view.frameCount)),
+                12000f / (documentWidth * columns),
+                12000f / (documentHeight * rows)
             )
             val frameWidth = (documentWidth * scale).toInt().coerceAtLeast(1)
             val frameHeight = (documentHeight * scale).toInt().coerceAtLeast(1)
