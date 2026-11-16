@@ -569,37 +569,33 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         destination: RectF? = null,
         clipBase: Bitmap? = null
     ) {
+        val vectorRaster = if (layer.vectorPaths.isNotEmpty()) {
+            layer.bitmap.copy(Bitmap.Config.ARGB_8888, true).also { VectorRenderer.draw(Canvas(it), layer.vectorPaths) }
+        } else layer.bitmap
         val clipped = if (layer.isClippedToBelow && clipBase != null) {
             Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { temp ->
                 val tempCanvas = Canvas(temp)
-                tempCanvas.drawBitmap(layer.bitmap, 0f, 0f, null)
+                tempCanvas.drawBitmap(vectorRaster, 0f, 0f, null)
                 tempCanvas.drawBitmap(clipBase, 0f, 0f, Paint().apply {
                     xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
                 })
             }
         } else null
-        val source = clipped ?: layer.bitmap
+        val source = clipped ?: vectorRaster
         val masked = if (layer.maskEnabled && layer.maskBitmap != null) {
-            val result = source.copy(Bitmap.Config.ARGB_8888, true)
-            Canvas(result).drawBitmap(layer.maskBitmap!!, 0f, 0f, Paint().apply {
-                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-            })
-            result
+            Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { result ->
+                Canvas(result).drawBitmap(source, 0f, 0f, null)
+                Canvas(result).drawBitmap(layer.maskBitmap!!, 0f, 0f, Paint().apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                })
+            }
         } else null
         val drawable = masked ?: source
-        if (destination == null) {
-            target.drawBitmap(drawable, 0f, 0f, paint)
-            VectorRenderer.draw(target, layer.vectorPaths)
-        } else {
-            target.drawBitmap(drawable, null, destination, paint)
-            val vectorSave = target.save()
-            target.translate(destination.left, destination.top)
-            target.scale(destination.width() / documentWidth, destination.height() / documentHeight)
-            VectorRenderer.draw(target, layer.vectorPaths)
-            target.restoreToCount(vectorSave)
-        }
+        if (destination == null) target.drawBitmap(drawable, 0f, 0f, paint)
+        else target.drawBitmap(drawable, null, destination, paint)
         masked?.recycle()
         clipped?.recycle()
+        if (vectorRaster !== layer.bitmap) vectorRaster.recycle()
     }
 
     override fun onDraw(canvas: Canvas) {
