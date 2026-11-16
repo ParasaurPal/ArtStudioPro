@@ -52,6 +52,9 @@ fun StudioScreen() {
     var brushFlow by remember { mutableFloatStateOf(0.85f) }
     var brushSpacing by remember { mutableFloatStateOf(0.08f) }
     var brushStreamline by remember { mutableFloatStateOf(0.65f) }
+    var brushScatter by remember { mutableFloatStateOf(0f) }
+    var brushRotationJitter by remember { mutableFloatStateOf(0f) }
+    var brushSizeJitter by remember { mutableFloatStateOf(0f) }
     var activeColor by remember { mutableIntStateOf(AColor.BLACK) }
     var documentWidth by remember { mutableIntStateOf(2048) }
     var documentHeight by remember { mutableIntStateOf(2048) }
@@ -269,6 +272,18 @@ fun StudioScreen() {
                         Text("Stabilize", color = Color.White, style = MaterialTheme.typography.labelSmall)
                         Slider(value = brushStreamline, onValueChange = { brushStreamline = it }, valueRange = 0f..0.95f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Scatter", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushScatter, onValueChange = { brushScatter = it }, valueRange = 0f..2f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                        Text("${(brushScatter * 100).toInt()}%", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Text("Rotation", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushRotationJitter, onValueChange = { brushRotationJitter = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Size jitter", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushSizeJitter, onValueChange = { brushSizeJitter = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
+                        Text("${(brushSizeJitter * 100).toInt()}%", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
                     Text("Layers (${canvasView?.layers?.size ?: 0}) · ${layerRefresh}", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -471,6 +486,9 @@ fun StudioScreen() {
                         brush.flow = brushFlow
                         brush.spacing = brushSpacing
                         brush.streamline = brushStreamline
+                        brush.scatter = brushScatter
+                        brush.rotationJitter = brushRotationJitter
+                        brush.sizeJitter = brushSizeJitter
                         brush.sizeSource = dynamicsSource
                         brush.opacitySource = opacityDynamicsSource
                         brush.tipMask = tipMask
