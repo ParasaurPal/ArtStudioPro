@@ -47,7 +47,9 @@ data class BrushDefinition(
     var sizeCurve: DynamicsCurve = DynamicsCurve(),
     val advancedParameters: MutableMap<String, Float> = BrushParameter.defaults(),
     var tipMaskPngBase64: String? = null,
-    @Transient var tipMask: Bitmap? = null
+    var texturePngBase64: String? = null,
+    @Transient var tipMask: Bitmap? = null,
+    @Transient var textureBitmap: Bitmap? = null
 ) {
     fun parameter(parameter: BrushParameter): Float = advancedParameters[parameter.name] ?: parameter.defaultValue
     fun setParameter(parameter: BrushParameter, value: Float) {
