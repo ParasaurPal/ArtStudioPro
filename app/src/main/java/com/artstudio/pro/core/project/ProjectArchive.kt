@@ -56,7 +56,9 @@ object ProjectArchive {
         val clippedToBelow: Boolean = false,
         val brightness: Float = 0f,
         val contrast: Float = 1f,
-        val saturation: Float = 1f
+        val saturation: Float = 1f,
+        val maskFile: String? = null,
+        val maskEnabled: Boolean = true
     )
 
     data class LoadedProject(
@@ -80,17 +82,24 @@ object ProjectArchive {
         clippedToBelow = layer.isClippedToBelow,
         brightness = layer.brightness,
         contrast = layer.contrast,
-        saturation = layer.saturation
+        saturation = layer.saturation,
+        maskFile = if (layer.maskBitmap != null) file.removeSuffix(".png") + "_mask.png" else null,
+        maskEnabled = layer.maskEnabled
     )
 
-    private fun writeLayer(zip: ZipOutputStream, layer: ArtLayer, file: String) {
+    private fun writeBitmap(zip: ZipOutputStream, bitmap: Bitmap, file: String) {
         val bytes = ByteArrayOutputStream()
-        check(layer.bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes)) {
-            "Could not encode layer: ${layer.name}"
+        check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes)) {
+            "Could not encode bitmap: $file"
         }
         zip.putNextEntry(ZipEntry(file))
         zip.write(bytes.toByteArray())
         zip.closeEntry()
+    }
+
+    private fun writeLayer(zip: ZipOutputStream, layer: ArtLayer, metadata: LayerManifest) {
+        writeBitmap(zip, layer.bitmap, metadata.file)
+        layer.maskBitmap?.let { mask -> metadata.maskFile?.let { writeBitmap(zip, mask, it) } }
     }
 
     fun save(
@@ -145,7 +154,7 @@ object ProjectArchive {
             zip.closeEntry()
             framesToSave.forEachIndexed { frameIndex, frame ->
                 frame.layers.forEachIndexed { layerIndex, layer ->
-                    writeLayer(zip, layer, frameManifests[frameIndex].layers[layerIndex].file)
+                    writeLayer(zip, layer, frameManifests[frameIndex].layers[layerIndex])
                 }
             }
             zip.finish()
@@ -154,7 +163,7 @@ object ProjectArchive {
 
     fun load(input: InputStream): LoadedProject {
         val entries = mutableMapOf<String, ByteArray>()
-        val allowedPath = Regex("(project\\.json|layers/[A-Za-z0-9_.-]+\\.png|frames/frame_[0-9]{3}/layer_[0-9]{3}\\.png)")
+        val allowedPath = Regex("(project\\.json|layers/[A-Za-z0-9_.-]+\\.png|frames/frame_[0-9]{3}/layer_[0-9]{3}(_mask)?\\.png)")
         ZipInputStream(input.buffered()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
@@ -212,10 +221,20 @@ object ProjectArchive {
                 brightness = metadata.brightness.coerceIn(-1f, 1f),
                 contrast = metadata.contrast.coerceIn(0f, 2f),
                 saturation = metadata.saturation.coerceIn(0f, 2f),
-                blendMode = runCatching { BlendMode.valueOf(metadata.blendMode) }.getOrDefault(BlendMode.NORMAL)
+                blendMode = runCatching { BlendMode.valueOf(metadata.blendMode) }.getOrDefault(BlendMode.NORMAL),
+                maskEnabled = metadata.maskEnabled
             ).also { layer ->
                 layer.canvas.drawBitmap(bitmap, 0f, 0f, null)
                 bitmap.recycle()
+                metadata.maskFile?.let { maskPath ->
+                    entries[maskPath]?.let { maskBytes ->
+                        val maskBitmap = BitmapFactory.decodeByteArray(maskBytes, 0, maskBytes.size)
+                        if (maskBitmap != null && maskBitmap.width == manifest.width && maskBitmap.height == manifest.height) {
+                            layer.createMask(fillWhite = false).also { Canvas(it).drawBitmap(maskBitmap, 0f, 0f, null) }
+                        }
+                        maskBitmap?.recycle()
+                    }
+                }
             }
         }
 
