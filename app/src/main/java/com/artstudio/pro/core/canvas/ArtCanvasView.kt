@@ -1,6 +1,8 @@
 package com.artstudio.pro.core.canvas
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -26,11 +28,30 @@ enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
 enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE }
 
+data class AnimationFrame(var durationMs: Int = 100, val layers: MutableList<ArtLayer>)
+
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
-    val layers = mutableListOf(
+    var layers = mutableListOf(
         ArtLayer(name = "Background", width = documentWidth, height = documentHeight).apply { clear() }
     )
+        private set
+    private val animationFrames = mutableListOf(AnimationFrame(100, layers))
+    var currentFrameIndex: Int = 0
+        private set
+    var onionSkinEnabled: Boolean = false
+        private set
+    var isPlaying: Boolean = false
+        private set
+    val frameCount: Int get() = animationFrames.size
+    private val playbackHandler = Handler(Looper.getMainLooper())
+    private val playbackRunnable = object : Runnable {
+        override fun run() {
+            if (!isPlaying || animationFrames.size < 2) return
+            selectFrame((currentFrameIndex + 1) % animationFrames.size)
+            playbackHandler.postDelayed(this, animationFrames[currentFrameIndex].durationMs.toLong())
+        }
+    }
     var activeLayerIndex: Int = 0
         private set
     val activeLayer: ArtLayer get() = layers[activeLayerIndex.coerceIn(0, layers.lastIndex)]
@@ -172,6 +193,87 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         redoHistory.forEach(::releaseChange)
         undoHistory.clear()
         redoHistory.clear()
+    }
+
+    private fun cloneLayer(source: ArtLayer, copyPixels: Boolean): ArtLayer {
+        return ArtLayer(
+            name = source.name,
+            width = documentWidth,
+            height = documentHeight,
+            opacity = source.opacity,
+            isVisible = source.isVisible,
+            isAlphaLocked = source.isAlphaLocked,
+            isClippedToBelow = source.isClippedToBelow,
+            brightness = source.brightness,
+            contrast = source.contrast,
+            saturation = source.saturation,
+            blendMode = source.blendMode
+        ).also { if (copyPixels) it.canvas.drawBitmap(source.bitmap, 0f, 0f, null) }
+    }
+
+    fun selectFrame(index: Int) {
+        if (index !in animationFrames.indices || index == currentFrameIndex) return
+        commitStroke()
+        currentFrameIndex = index
+        layers = animationFrames[index].layers
+        activeLayerIndex = activeLayerIndex.coerceIn(0, layers.lastIndex)
+        clearHistory()
+        invalidate()
+    }
+
+    fun addBlankFrame(): Boolean {
+        if (animationFrames.size >= 120) return false
+        val blank = layers.map { cloneLayer(it, false) }.toMutableList()
+        animationFrames.add(currentFrameIndex + 1, AnimationFrame(100, blank))
+        selectFrame(currentFrameIndex + 1)
+        return true
+    }
+
+    fun duplicateFrame(): Boolean {
+        if (animationFrames.size >= 120) return false
+        val duplicate = layers.map { cloneLayer(it, true) }.toMutableList()
+        animationFrames.add(currentFrameIndex + 1, AnimationFrame(
+            animationFrames[currentFrameIndex].durationMs, duplicate
+        ))
+        selectFrame(currentFrameIndex + 1)
+        return true
+    }
+
+    fun deleteFrame(): Boolean {
+        if (animationFrames.size <= 1) {
+            layers.forEach { it.clear() }
+            invalidate()
+            return false
+        }
+        animationFrames.removeAt(currentFrameIndex)
+        currentFrameIndex = (currentFrameIndex - 1).coerceAtLeast(0)
+        layers = animationFrames[currentFrameIndex].layers
+        activeLayerIndex = activeLayerIndex.coerceIn(0, layers.lastIndex)
+        clearHistory()
+        invalidate()
+        return true
+    }
+
+    fun setFrameDuration(durationMs: Int) {
+        animationFrames[currentFrameIndex].durationMs = durationMs.coerceIn(20, 5000)
+    }
+
+    fun currentFrameDuration(): Int = animationFrames[currentFrameIndex].durationMs
+
+    fun setOnionSkin(enabled: Boolean) {
+        onionSkinEnabled = enabled
+        invalidate()
+    }
+
+    fun startPlayback() {
+        if (animationFrames.size < 2 || isPlaying) return
+        isPlaying = true
+        playbackHandler.postDelayed(playbackRunnable, animationFrames[currentFrameIndex].durationMs.toLong())
+    }
+
+    fun stopPlayback() {
+        isPlaying = false
+        playbackHandler.removeCallbacks(playbackRunnable)
     }
 
     fun setDrawingTool(tool: DrawingTool) {
@@ -374,6 +476,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         PaperTexture.draw(canvas, viewportRect, paperKind, paperStrength)
         val save = canvas.save()
         canvas.clipRect(viewportRect)
+        if (onionSkinEnabled && currentFrameIndex > 0) {
+            val previousFrame = animationFrames[currentFrameIndex - 1]
+            val onionPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { alpha = 42 }
+            previousFrame.layers.filter { it.isVisible }.forEach { previousLayer ->
+                canvas.drawBitmap(previousLayer.bitmap, null, viewportRect, onionPaint)
+            }
+        }
         var clipBase: Bitmap? = null
         layers.filter { it.isVisible }.forEach { layer ->
             layerPaint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
@@ -471,8 +580,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         require(newLayers.isNotEmpty())
         require(newLayers.size <= maxLayerCount) { "This project has more layers than this canvas can safely hold on this device." }
         require(newLayers.all { it.width == documentWidth && it.height == documentHeight })
-        layers.clear()
-        layers.addAll(newLayers)
+        layers = newLayers.toMutableList()
+        animationFrames.clear()
+        animationFrames.add(AnimationFrame(100, layers))
+        currentFrameIndex = 0
         activeLayerIndex = layers.lastIndex
         clearHistory()
         invalidate()
@@ -722,6 +833,11 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             }
         }
         return true
+    }
+
+    override fun onDetachedFromWindow() {
+        stopPlayback()
+        super.onDetachedFromWindow()
     }
 
     override fun performClick(): Boolean {
