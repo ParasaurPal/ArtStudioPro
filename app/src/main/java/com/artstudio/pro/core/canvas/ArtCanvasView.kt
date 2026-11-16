@@ -34,7 +34,7 @@ import kotlin.math.min
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
 enum class PerspectiveMode { OFF, ONE_POINT, TWO_POINT, THREE_POINT }
-enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT, FILL }
+enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT, FILL, GRADIENT }
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
@@ -90,6 +90,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private var shapeStartX = 0f
     private var shapeStartY = 0f
     var textToolContent: String = "Text"
+        private set
+    var gradientEndColor: Int = Color.WHITE
         private set
     private var selectedVectorPathId: String? = null
     private var selectedVectorNodeIndex: Int? = null
@@ -330,6 +332,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         playbackHandler.removeCallbacks(playbackRunnable)
     }
 
+    fun setGradientEndColor(color: Int) { gradientEndColor = color; invalidate() }
+
     fun setTextToolContent(value: String) {
         textToolContent = value.take(240).ifBlank { "Text" }
     }
@@ -379,6 +383,15 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                     typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
                 }
                 target.drawText(textToolContent, shapeStartX, shapeStartY, textPaint)
+            }
+            DrawingTool.GRADIENT -> {
+                shapePaint.style = Paint.Style.FILL
+                shapePaint.shader = android.graphics.LinearGradient(
+                    shapeStartX, shapeStartY, endX, endY,
+                    engine.activeColor, gradientEndColor, android.graphics.Shader.TileMode.CLAMP
+                )
+                target.drawRect(left, top, right, bottom, shapePaint)
+                shapePaint.shader = null
             }
             DrawingTool.BRUSH, DrawingTool.VECTOR_EDIT, DrawingTool.FILL -> Unit
         }
