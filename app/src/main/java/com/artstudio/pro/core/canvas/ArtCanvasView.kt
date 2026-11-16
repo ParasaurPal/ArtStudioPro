@@ -34,7 +34,7 @@ import kotlin.math.min
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
 enum class PerspectiveMode { OFF, ONE_POINT, TWO_POINT, THREE_POINT }
-enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT, FILL, GRADIENT }
+enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT, FILL, GRADIENT, FILLED_RECTANGLE, FILLED_ELLIPSE }
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
@@ -360,6 +360,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             DrawingTool.LINE -> target.drawLine(shapeStartX, shapeStartY, endX, endY, shapePaint)
             DrawingTool.RECTANGLE -> target.drawRect(left, top, right, bottom, shapePaint)
             DrawingTool.ELLIPSE -> target.drawOval(left, top, right, bottom, shapePaint)
+            DrawingTool.FILLED_RECTANGLE -> { shapePaint.style = Paint.Style.FILL; target.drawRect(left, top, right, bottom, shapePaint) }
+            DrawingTool.FILLED_ELLIPSE -> { shapePaint.style = Paint.Style.FILL; target.drawOval(left, top, right, bottom, shapePaint) }
             DrawingTool.PANEL -> {
                 shapePaint.strokeWidth = (engine.brush.baseSize * 0.18f).coerceAtLeast(4f)
                 target.drawRect(left, top, right, bottom, shapePaint)
