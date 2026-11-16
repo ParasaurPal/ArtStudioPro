@@ -109,6 +109,11 @@ fun StudioScreen() {
     var paperKind by remember { mutableStateOf(PaperKind.SMOOTH) }
     var documentColorProfile by remember { mutableStateOf(ColorProfile.SRGB) }
     var showProfilePicker by remember { mutableStateOf(false) }
+    var showPrintSettings by remember { mutableStateOf(false) }
+    var printBleedMm by remember { mutableFloatStateOf(3f) }
+    var printSafeMarginMm by remember { mutableFloatStateOf(5f) }
+    var printCropMarks by remember { mutableStateOf(false) }
+    var includePrintBleed by remember { mutableStateOf(true) }
     var paperStrength by remember { mutableFloatStateOf(1f) }
     var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
@@ -260,7 +265,8 @@ fun StudioScreen() {
         ActivityResultContracts.CreateDocument("image/tiff")
     ) { uri ->
         if (uri != null) runCatching {
-            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite(AColor.WHITE)
+            val source = renderProfiledComposite(AColor.WHITE)
+            val bitmap = try { PrintProduction.preparePrintBitmap(source, PrintSettings(documentDpi, printBleedMm, printSafeMarginMm, printCropMarks, includePrintBleed)) } finally { source.recycle() }
             try { context.contentResolver.openOutputStream(uri)?.use { RasterFormatWriter.writeTiff(bitmap,it,documentDpi) } ?: error("Unable to open the selected file.") }
             finally { bitmap.recycle() }
         }.onSuccess { Toast.makeText(context,"Print TIFF exported",Toast.LENGTH_SHORT).show() }
@@ -284,25 +290,24 @@ fun StudioScreen() {
     ) { uri ->
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
-            val pageWidth = (documentWidth.toFloat() * 72f / documentDpi).toInt().coerceAtLeast(1)
-            val pageHeight = (documentHeight.toFloat() * 72f / documentDpi).toInt().coerceAtLeast(1)
+            val settings = PrintSettings(
+                dpi = documentDpi, bleedMm = printBleedMm, safeMarginMm = printSafeMarginMm,
+                showCropMarks = printCropMarks, includeBleed = includePrintBleed
+            )
             val pdf = android.graphics.pdf.PdfDocument()
             try {
                 repeat(view.frameCount) { frameIndex ->
-                    val bitmap = renderProfiledFrame(frameIndex)
+                    val source = renderProfiledFrame(frameIndex, AColor.WHITE)
+                    val bitmap = try { PrintProduction.preparePrintBitmap(source, settings) } finally { source.recycle() }
                     try {
+                        val pageWidth = (bitmap.width.toFloat() * 72f / documentDpi).toInt().coerceAtLeast(1)
+                        val pageHeight = (bitmap.height.toFloat() * 72f / documentDpi).toInt().coerceAtLeast(1)
                         val page = pdf.startPage(
                             android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, frameIndex + 1).create()
                         )
-                        page.canvas.drawBitmap(
-                            bitmap, null,
-                            android.graphics.Rect(0, 0, pageWidth, pageHeight),
-                            android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
-                        )
+                        page.canvas.drawBitmap(bitmap, null, android.graphics.Rect(0, 0, pageWidth, pageHeight), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
                         pdf.finishPage(page)
-                    } finally {
-                        bitmap.recycle()
-                    }
+                    } finally { bitmap.recycle() }
                 }
                 context.contentResolver.openOutputStream(uri)?.use { pdf.writeTo(it) }
                     ?: error("Unable to open the selected file.")
@@ -317,7 +322,7 @@ fun StudioScreen() {
         ActivityResultContracts.CreateDocument("image/webp")
     ) { uri ->
         if (uri != null) runCatching {
-            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite()
+            val bitmap = renderProfiledComposite()
             try {
                 context.contentResolver.openOutputStream(uri)?.use { output ->
                     check(bitmap.compress(Bitmap.CompressFormat.WEBP, 92, output)) { "WebP encoding failed." }
@@ -508,6 +513,7 @@ fun StudioScreen() {
                         }) { Text(if (eraserMode) "Eraser on" else "Eraser") }
                         TextButton(onClick = { showPaperPicker = true }) { Text("Paper: ${paperKind.title}") }
                         TextButton(onClick = { showProfilePicker = true }) { Text("Profile: ${documentColorProfile.name.replace('_',' ')}") }
+                        TextButton(onClick = { showPrintSettings = true }) { Text("Print setup") }
                         TextButton(onClick = {
                             val view = canvasView
                             if (view != null) {
@@ -1029,6 +1035,31 @@ fun StudioScreen() {
             confirmButton = {
                 TextButton(onClick = { showBrushLibrary = false }) { Text("Close") }
             }
+        )
+    }
+
+    if (showPrintSettings) {
+        AlertDialog(
+            onDismissRequest = { showPrintSettings = false },
+            title = { Text("Print production") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Bleed · ${printBleedMm.toInt()} mm")
+                    Slider(value = printBleedMm, onValueChange = { printBleedMm = it }, valueRange = 0f..10f)
+                    Text("Safe margin · ${printSafeMarginMm.toInt()} mm")
+                    Slider(value = printSafeMarginMm, onValueChange = { printSafeMarginMm = it }, valueRange = 0f..25f)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = includePrintBleed, onCheckedChange = { includePrintBleed = it })
+                        Text("Include bleed")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = printCropMarks, onCheckedChange = { printCropMarks = it })
+                        Text("Add crop marks")
+                    }
+                    Text("These settings apply to PDF and TIFF output. Bleed extends artwork edges; safe margin is a layout guide.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showPrintSettings = false }) { Text("Done") } }
         )
     }
 
