@@ -45,6 +45,7 @@ import com.artstudio.pro.core.export.RasterFormatWriter
 import com.artstudio.pro.core.vector.VectorRenderer
 import com.artstudio.pro.core.print.PrintProduction
 import com.artstudio.pro.core.print.PrintSettings
+import com.artstudio.pro.core.importer.ImportFormatReader
 import com.artstudio.pro.core.reference.PoseReferenceView
 import com.artstudio.pro.core.reference.PosePreset
 
@@ -369,8 +370,7 @@ fun StudioScreen() {
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) runCatching {
-            context.contentResolver.openInputStream(uri)?.use(BitmapFactory::decodeStream)
-                ?: error("Unable to read the selected image.")
+            ImportFormatReader.decode(context, uri)
         }.onSuccess { bitmap ->
             canvasView?.addImageLayer(bitmap)
             bitmap.recycle()
