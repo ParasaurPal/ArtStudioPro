@@ -2,6 +2,7 @@ package com.artstudio.pro.core.project
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.AnimationFrame
 import com.artstudio.pro.core.model.BlendMode
