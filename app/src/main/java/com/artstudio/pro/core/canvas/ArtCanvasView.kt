@@ -1297,7 +1297,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private fun renderLayersComposite(
         sourceLayers: List<ArtLayer>,
         backgroundColor: Int? = null,
-        includeVectors: Boolean = true
+        includeVectors: Boolean = true,
+        vectorLayerIds: Set<String> = emptySet()
     ): Bitmap {
         val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
         val outputCanvas = Canvas(output)
@@ -1306,7 +1307,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         var clipBase: Bitmap? = null
         sourceLayers.filter { isLayerVisible(it) }.forEach { layer ->
             val source = layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)
-            if (includeVectors) VectorRenderer.draw(Canvas(source), layer.vectorPaths)
+            if (includeVectors || layer.id in vectorLayerIds) VectorRenderer.draw(Canvas(source), layer.vectorPaths)
             if (layer.maskEnabled) {
                 layer.maskBitmap?.let { mask ->
                     Canvas(source).drawBitmap(mask, 0f, 0f, Paint().apply {
@@ -1345,6 +1346,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun renderRasterOnlyComposite(backgroundColor: Int? = null): Bitmap =
         renderLayersComposite(layers, backgroundColor, includeVectors = false)
+
+    fun renderSvgRasterComposite(backgroundColor: Int? = null): Bitmap {
+        val bakeVectors = layers.filter { layer ->
+            layer.maskBitmap != null || layer.isClippedToBelow || layer.blendMode != BlendMode.NORMAL
+        }.map { it.id }.toSet()
+        return renderLayersComposite(layers, backgroundColor, includeVectors = false, vectorLayerIds = bakeVectors)
+    }
 
     fun forEachHighPrecisionTile(
         tileSize: Int = 512,
