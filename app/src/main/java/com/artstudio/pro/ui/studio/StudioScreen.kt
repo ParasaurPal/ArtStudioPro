@@ -144,7 +144,10 @@ fun StudioScreen() {
     var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
-    val brush = remember(brushMedium) { BrushDefinition("medium-${brushMedium.name.lowercase()}", brushMedium.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, brushMedium) }
+    val brush = remember(brushMedium, selectedBrushPreset?.id) {
+        selectedBrushPreset?.copy(advancedParameters = selectedBrushPreset?.advancedParameters?.toMutableMap() ?: BrushParameter.defaults())
+            ?: BrushDefinition("medium-${brushMedium.name.lowercase()}", brushMedium.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, brushMedium)
+    }
 
     fun renderProfiledComposite(backgroundColor: Int? = null): Bitmap {
         val raw = (canvasView ?: error("The canvas is not ready.")).renderComposite(backgroundColor)
@@ -1140,6 +1143,7 @@ fun StudioScreen() {
                     savedBrushes.forEach { preset ->
                         TextButton(
                             onClick = {
+                                selectedBrushPreset = preset
                                 brushMedium = preset.medium
                                 brushSize = preset.baseSize
                                 brushOpacity = preset.baseOpacity
