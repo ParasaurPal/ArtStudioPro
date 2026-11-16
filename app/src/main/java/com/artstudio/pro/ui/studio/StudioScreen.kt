@@ -930,7 +930,7 @@ fun StudioScreen() {
                             val view = canvasView
                             if (view != null && !view.addBlankFrame()) Toast.makeText(context, "Animation frame or mobile memory limit reached.", Toast.LENGTH_SHORT).show()
                             layerRefresh++
-                        }) { Text("+ Blank") }
+                        }) { Text("+ Page / Frame") }
                         TextButton(onClick = {
                             val view = canvasView
                             if (view != null && !view.duplicateFrame()) Toast.makeText(context, "Animation frame or mobile memory limit reached.", Toast.LENGTH_SHORT).show()
