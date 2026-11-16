@@ -97,6 +97,9 @@ fun StudioScreen() {
     var filterAmount by remember { mutableFloatStateOf(1f) }
     var showPoseReference by remember { mutableStateOf(false) }
     var poseReferenceView by remember { mutableStateOf<PoseReferenceView?>(null) }
+    var poseJoint by remember { mutableStateOf("leftElbow") }
+    var poseOffsetX by remember { mutableFloatStateOf(0f) }
+    var poseOffsetY by remember { mutableFloatStateOf(0f) }
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
@@ -1116,6 +1119,29 @@ fun StudioScreen() {
                             }) { Text(preset.name.lowercase().replace('_',' ')) }
                         }
                     }
+                    Text("Select joint", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        poseReferenceView?.model?.jointNames?.forEach { joint ->
+                            TextButton(onClick = { poseJoint = joint; poseOffsetX = 0f; poseOffsetY = 0f }) {
+                                Text(joint.replace(Regex("([A-Z])"), " $1").lowercase())
+                            }
+                        }
+                    }
+                    Text("Horizontal joint offset · ${(poseOffsetX * 100).toInt()}")
+                    Slider(value = poseOffsetX, onValueChange = {
+                        poseOffsetX = it
+                        poseReferenceView?.model?.setJointOffset(poseJoint, poseOffsetX, poseOffsetY)
+                        poseReferenceView?.invalidate()
+                    }, valueRange = -1f..1f)
+                    Text("Vertical joint offset · ${(poseOffsetY * 100).toInt()}")
+                    Slider(value = poseOffsetY, onValueChange = {
+                        poseOffsetY = it
+                        poseReferenceView?.model?.setJointOffset(poseJoint, poseOffsetX, poseOffsetY)
+                        poseReferenceView?.invalidate()
+                    }, valueRange = -1f..1f)
                     Text("Drag the mannequin to rotate the camera. Pose references are a separate guide and do not alter your artwork.", style = MaterialTheme.typography.bodySmall)
                 }
             },
