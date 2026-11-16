@@ -39,6 +39,10 @@ import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
 import com.artstudio.pro.core.paper.PaperKind
 import com.artstudio.pro.core.filters.ImageFilter
+import com.artstudio.pro.core.export.RasterFormatWriter
+import com.artstudio.pro.core.vector.VectorRenderer
+import com.artstudio.pro.core.print.PrintProduction
+import com.artstudio.pro.core.print.PrintSettings
 
 private val studioPalette = listOf(
     AColor.BLACK, AColor.WHITE, AColor.RED, AColor.rgb(255, 145, 0),
@@ -189,6 +193,40 @@ fun StudioScreen() {
             .onFailure { Toast.makeText(context, "Sprite sheet export failed: ${it.message}", Toast.LENGTH_LONG).show() }
     }
 
+    val exportPsd = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/vnd.adobe.photoshop")
+    ) { uri ->
+        if (uri != null) runCatching {
+            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite(AColor.WHITE)
+            try { context.contentResolver.openOutputStream(uri)?.use { RasterFormatWriter.writePsd(bitmap,it) } ?: error("Unable to open the selected file.") }
+            finally { bitmap.recycle() }
+        }.onSuccess { Toast.makeText(context,"PSD exported",Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context,"PSD export failed: ${it.message}",Toast.LENGTH_LONG).show() }
+    }
+
+    val exportTiff = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/tiff")
+    ) { uri ->
+        if (uri != null) runCatching {
+            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite(AColor.WHITE)
+            try { context.contentResolver.openOutputStream(uri)?.use { RasterFormatWriter.writeTiff(bitmap,it,documentDpi) } ?: error("Unable to open the selected file.") }
+            finally { bitmap.recycle() }
+        }.onSuccess { Toast.makeText(context,"Print TIFF exported",Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context,"TIFF export failed: ${it.message}",Toast.LENGTH_LONG).show() }
+    }
+
+    val exportSvg = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/svg+xml")
+    ) { uri ->
+        if (uri != null) runCatching {
+            val paths = canvasView?.layers?.flatMap { it.vectorPaths } ?: emptyList()
+            val svg = VectorRenderer.toSvg(paths,documentWidth,documentHeight)
+            context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(svg) }
+                ?: error("Unable to open the selected file.")
+        }.onSuccess { Toast.makeText(context,"Vector SVG exported",Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context,"SVG export failed: ${it.message}",Toast.LENGTH_LONG).show() }
+    }
+
     val exportPdf = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri ->
@@ -334,6 +372,9 @@ fun StudioScreen() {
                     TextButton(onClick = { exportJpg.launch("Artwork.jpg") }) { Text("JPG", color = Color.White) }
                     TextButton(onClick = { exportWebp.launch("Artwork.webp") }) { Text("WebP", color = Color.White) }
                     TextButton(onClick = { exportPdf.launch("Artwork.pdf") }) { Text("PDF", color = Color.White) }
+                    TextButton(onClick = { exportPsd.launch("Artwork.psd") }) { Text("PSD", color = Color.White) }
+                    TextButton(onClick = { exportTiff.launch("Artwork.tiff") }) { Text("TIFF", color = Color.White) }
+                    TextButton(onClick = { exportSvg.launch("Artwork.svg") }) { Text("SVG", color = Color.White) }
                     TextButton(onClick = { exportSpriteSheet.launch("Animation-Sheet.png") }) { Text("Sheet", color = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1E1E1E))
