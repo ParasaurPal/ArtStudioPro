@@ -54,6 +54,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         targetX = point.x
         targetY = point.y
         lastPressure = point.pressure
+        currentStrokeAngle = 0f
         applyPointDynamics(point)
         renderStamp(canvas, point.x, point.y, point.pressure)
     }
@@ -150,7 +151,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 tipPaint.alpha = 255
             }
             brush.medium == BrushMedium.WATERCOLOR -> {
-                canvas.drawCircle(x, y, radius, paint)
+                canvas.drawCircle(drawX, drawY, radius, paint)
                 detailPaint.color = activeColor
                 detailPaint.alpha = (flowAlpha * 0.18f).toInt().coerceIn(0, 255)
                 detailPaint.style = Paint.Style.STROKE
@@ -159,7 +160,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 detailPaint.style = Paint.Style.FILL
             }
             brush.medium == BrushMedium.OIL_IMPASTO -> {
-                canvas.drawCircle(x, y, radius, paint)
+                canvas.drawCircle(drawX, drawY, radius, paint)
                 detailPaint.color = activeColor
                 detailPaint.alpha = (flowAlpha * 0.42f).toInt().coerceIn(0, 255)
                 detailPaint.style = Paint.Style.STROKE
@@ -172,7 +173,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 detailPaint.style = Paint.Style.FILL
             }
             brush.medium == BrushMedium.GRAPHITE || brush.medium == BrushMedium.CHARCOAL -> {
-                canvas.drawCircle(x, y, radius, paint)
+                canvas.drawCircle(drawX, drawY, radius, paint)
                 detailPaint.color = activeColor
                 val flecks = if (brush.medium == BrushMedium.CHARCOAL) 10 else 5
                 repeat(flecks) { i ->
@@ -185,7 +186,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                     canvas.drawCircle(px, py, dot, detailPaint)
                 }
             }
-            else -> canvas.drawCircle(x, y, radius, paint)
+            else -> canvas.drawCircle(drawX, drawY, radius, paint)
         }
         stampIndex++
     }
