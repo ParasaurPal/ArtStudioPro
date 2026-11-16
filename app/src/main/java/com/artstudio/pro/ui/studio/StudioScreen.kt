@@ -411,6 +411,9 @@ fun StudioScreen() {
                             }
                         }) { Text("Grid ${canvasView?.gridSpacing ?: 64}px") }
                         TextButton(onClick = {
+                            canvasView?.let { it.setRulers(!it.showRulers); layerRefresh++ }
+                        }) { Text(if (canvasView?.showRulers == true) "Rulers on" else "Rulers off") }
+                        TextButton(onClick = {
                             val modes = SelectionMode.values()
                             val view = canvasView
                             if (view != null) {
