@@ -38,6 +38,7 @@ import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
 import com.artstudio.pro.core.paper.PaperKind
+import com.artstudio.pro.core.filters.ImageFilter
 
 private val studioPalette = listOf(
     AColor.BLACK, AColor.WHITE, AColor.RED, AColor.rgb(255, 145, 0),
@@ -81,6 +82,9 @@ fun StudioScreen() {
     var showTextContentDialog by remember { mutableStateOf(false) }
     var comicTextContent by remember { mutableStateOf("Text") }
     var showLayerAdjustments by remember { mutableStateOf(false) }
+    var showFilterPicker by remember { mutableStateOf(false) }
+    var selectedFilter by remember { mutableStateOf(ImageFilter.GRAYSCALE) }
+    var filterAmount by remember { mutableFloatStateOf(1f) }
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
@@ -465,6 +469,7 @@ fun StudioScreen() {
                             showTextContentDialog = true
                         }) { Text("Text content") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
+                        TextButton(onClick = { showFilterPicker = true }) { Text("Filters") }
                         TextButton(onClick = {
                             val preset = brush.copy(
                                 id = java.util.UUID.randomUUID().toString(),
@@ -924,6 +929,38 @@ fun StudioScreen() {
             confirmButton = {
                 TextButton(onClick = { showBrushLibrary = false }) { Text("Close") }
             }
+        )
+    }
+
+    if (showFilterPicker) {
+        AlertDialog(
+            onDismissRequest = { showFilterPicker = false },
+            title = { Text("Apply filter to a new layer") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    ImageFilter.values().forEach { filter ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = selectedFilter == filter, onClick = { selectedFilter = filter })
+                            Text(filter.label, modifier = Modifier.clickable { selectedFilter = filter })
+                        }
+                    }
+                    Text("Strength · ${(filterAmount * 100).toInt()}%")
+                    Slider(value = filterAmount, onValueChange = { filterAmount = it }, valueRange = 0f..1f)
+                    Text("The original layer stays untouched; the filtered result is placed above it.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val success = canvasView?.createFilterLayer(selectedFilter, filterAmount) == true
+                    if (!success) Toast.makeText(context, "Layer memory limit reached.", Toast.LENGTH_LONG).show()
+                    layerRefresh++
+                    showFilterPicker = false
+                }) { Text("Create filter layer") }
+            },
+            dismissButton = { TextButton(onClick = { showFilterPicker = false }) { Text("Cancel") } }
         )
     }
 
