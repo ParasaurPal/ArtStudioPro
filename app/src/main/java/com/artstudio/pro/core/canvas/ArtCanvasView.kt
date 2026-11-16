@@ -33,7 +33,7 @@ import com.artstudio.pro.core.paper.PaperTexture
 import kotlin.math.min
 
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
-enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
+enum class SelectionMode { NONE, RECTANGLE, ELLIPSE, LASSO }
 enum class PerspectiveMode { OFF, ONE_POINT, TWO_POINT, THREE_POINT }
 enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT, FILL, GRADIENT, FILLED_RECTANGLE, FILLED_ELLIPSE }
 
@@ -98,8 +98,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private var selectedVectorPathId: String? = null
     private var selectedVectorNodeIndex: Int? = null
     private var draggingVectorNode = false
-    val hasSelection: Boolean get() = selectionRect != null
+    val hasSelection: Boolean get() = selectionRect != null || selectionPath != null
     private var selectionRect: RectF? = null
+    private var selectionPath: Path? = null
     private var selectionIsEllipse = false
     private var selectionStartX = 0f
     private var selectionStartY = 0f
@@ -408,15 +409,18 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun maskActiveLayerToSelection() {
-        val rect = selectionRect ?: return
+        val rect = selectionRect ?: selectionPath?.let { Path().also { path -> path.addPath(it) }.let { path -> RectF().also(path::computeBounds) } } ?: return
         val target = activeLayer
         val mask = target.ensureMask()
         val before = captureTiles(target, rect, mask)
         val selectionMask = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
         val maskCanvas = Canvas(selectionMask)
         val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-        if (selectionIsEllipse) maskCanvas.drawOval(rect, maskPaint)
-        else maskCanvas.drawRect(rect, maskPaint)
+        when {
+            selectionPath != null -> maskCanvas.drawPath(selectionPath!!, maskPaint)
+            selectionIsEllipse -> maskCanvas.drawOval(rect, maskPaint)
+            else -> maskCanvas.drawRect(rect, maskPaint)
+        }
         Canvas(mask).drawBitmap(selectionMask, 0f, 0f, Paint().apply {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
         })
@@ -455,6 +459,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun clearSelection() {
         selectionRect = null
+        selectionPath = null
         selectionIsEllipse = false
         selectionMode = SelectionMode.NONE
         invalidate()
@@ -471,14 +476,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     private fun applySelectionClip(target: Canvas): Int? {
-        val rect = selectionRect ?: return null
+        val path = selectionPath
+        val rect = selectionRect
+        if (path == null && rect == null) return null
         val save = target.save()
-        if (selectionIsEllipse) {
-            val path = Path().apply { addOval(rect, Path.Direction.CW) }
-            target.clipPath(path)
-        } else {
-            target.clipRect(rect)
-        }
+        if (path != null) target.clipPath(path)
+        else if (selectionIsEllipse) target.clipPath(Path().apply { addOval(rect!!, Path.Direction.CW) })
+        else target.clipRect(rect!!)
         return save
     }
 
@@ -511,15 +515,21 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     private fun drawSelection(canvas: Canvas) {
-        val rect = selectionRect ?: return
-        val viewRect = RectF(rect)
-        documentToView.mapRect(viewRect)
         val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(210, 190, 255)
             style = Paint.Style.STROKE
             strokeWidth = 2f
             pathEffect = android.graphics.DashPathEffect(floatArrayOf(9f, 6f), 0f)
         }
+        selectionPath?.let { path ->
+            val viewPath = Path(path)
+            viewPath.transform(documentToView)
+            canvas.drawPath(viewPath, selectionPaint)
+            return
+        }
+        val rect = selectionRect ?: return
+        val viewRect = RectF(rect)
+        documentToView.mapRect(viewRect)
         if (selectionIsEllipse) canvas.drawOval(viewRect, selectionPaint)
         else canvas.drawRect(viewRect, selectionPaint)
     }
@@ -1432,16 +1442,31 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                     selectionStartX = point.x
                     selectionStartY = point.y
                     isSelecting = true
-                    selectionRect = RectF(point.x, point.y, point.x, point.y)
+                    if (selectionMode == SelectionMode.LASSO) {
+                        selectionRect = null
+                        selectionPath = Path().apply { moveTo(point.x, point.y) }
+                    } else {
+                        selectionPath = null
+                        selectionRect = RectF(point.x, point.y, point.x, point.y)
+                    }
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (isSelecting) updateSelection(documentPoint(event))
+                    if (isSelecting) {
+                        val point = documentPoint(event)
+                        if (selectionMode == SelectionMode.LASSO) selectionPath?.lineTo(point.x, point.y)
+                        else updateSelection(point)
+                        invalidate()
+                    }
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (isSelecting) {
-                        updateSelection(documentPoint(event))
+                        val point = documentPoint(event)
+                        if (selectionMode == SelectionMode.LASSO) {
+                            selectionPath?.apply { lineTo(point.x, point.y); close() }
+                            selectionPath?.let { path -> selectionRect = RectF().also(path::computeBounds) }
+                        } else updateSelection(point)
                         selectionIsEllipse = selectionMode == SelectionMode.ELLIPSE
                         selectionMode = SelectionMode.NONE
                         isSelecting = false
