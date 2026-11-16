@@ -1,6 +1,6 @@
 package com.artstudio.pro.core.brush.model
 
-/** 111 adjustable brush-engine parameters, grouped for the advanced editor. */
+/** 121 adjustable brush-engine parameters, grouped for the advanced editor. */
 enum class BrushParameter(
     val group: String,
     val defaultValue: Float,
