@@ -63,6 +63,7 @@ fun StudioScreen() {
     var documentDpi by remember { mutableIntStateOf(300) }
     var customWidth by remember { mutableStateOf("2048") }
     var customHeight by remember { mutableStateOf("2048") }
+    var customDpi by remember { mutableStateOf("300") }
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
     var pendingFrames by remember { mutableStateOf<List<AnimationFrame>?>(null) }
     var pendingFrameIndex by remember { mutableIntStateOf(0) }
@@ -698,6 +699,7 @@ fun StudioScreen() {
                                 documentDpi = preset.dpi
                                 customWidth = preset.width.toString()
                                 customHeight = preset.height.toString()
+                                customDpi = preset.dpi.toString()
                                 if (preset.width == documentWidth && preset.height == documentHeight) {
                                     canvasView?.replaceLayers(listOf(freshLayer))
                                     layerRefresh++
@@ -721,30 +723,38 @@ fun StudioScreen() {
                         }
                     }
                     Text("Custom canvas", style = MaterialTheme.typography.titleSmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedTextField(
                             value = customWidth,
                             onValueChange = { customWidth = it.filter(Char::isDigit).take(5) },
-                            label = { Text("Width px") },
+                            label = { Text("Width") },
                             singleLine = true,
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = customHeight,
                             onValueChange = { customHeight = it.filter(Char::isDigit).take(5) },
-                            label = { Text("Height px") },
+                            label = { Text("Height") },
                             singleLine = true,
                             modifier = Modifier.weight(1f)
                         )
+                        OutlinedTextField(
+                            value = customDpi,
+                            onValueChange = { customDpi = it.filter(Char::isDigit).take(4) },
+                            label = { Text("DPI") },
+                            singleLine = true,
+                            modifier = Modifier.weight(0.8f)
+                        )
                     }
-                    Text("Up to 16,000 px per side · 20 MP total area limit · 300 DPI default", style = MaterialTheme.typography.labelSmall)
+                    Text("Up to 16,000 px per side · 20 MP total area · 36–2400 DPI", style = MaterialTheme.typography.labelSmall)
                     Button(
                         onClick = {
                             val width = customWidth.toIntOrNull()
                             val height = customHeight.toIntOrNull()
-                            if (width != null && height != null && width in 1..16000 && height in 1..16000 && width.toLong() * height.toLong() <= 20_000_000L) {
+                            val dpi = customDpi.toIntOrNull()
+                            if (width != null && height != null && dpi != null && width in 1..16000 && height in 1..16000 && dpi in 36..2400 && width.toLong() * height.toLong() <= 20_000_000L) {
                                 val freshLayer = ArtLayer(name = "Background", width = width, height = height)
-                                documentDpi = 300
+                                documentDpi = dpi
                                 if (width == documentWidth && height == documentHeight) {
                                     canvasView?.replaceLayers(listOf(freshLayer))
                                     layerRefresh++
