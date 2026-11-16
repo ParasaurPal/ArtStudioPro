@@ -254,7 +254,7 @@ fun StudioScreen() {
         ActivityResultContracts.CreateDocument("image/vnd.adobe.photoshop")
     ) { uri ->
         if (uri != null) runCatching {
-            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite(AColor.WHITE)
+            val bitmap = renderProfiledComposite(AColor.WHITE)
             try { context.contentResolver.openOutputStream(uri)?.use { RasterFormatWriter.writePsd(bitmap,it) } ?: error("Unable to open the selected file.") }
             finally { bitmap.recycle() }
         }.onSuccess { Toast.makeText(context,"PSD exported",Toast.LENGTH_SHORT).show() }
