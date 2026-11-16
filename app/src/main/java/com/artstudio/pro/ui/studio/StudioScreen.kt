@@ -168,7 +168,7 @@ fun StudioScreen() {
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
             context.contentResolver.openOutputStream(uri)?.use {
-                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength, documentDpi, view.animationFramesSnapshot(), view.currentFrameIndex, documentColorProfile, view.layerGroups)
+                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength, documentDpi, view.animationFramesSnapshot(), view.currentFrameIndex, documentColorProfile, view.layerGroups, PrintSettings(documentDpi, printBleedMm, printSafeMarginMm, printCropMarks, includePrintBleed))
             } ?: error("Unable to open the selected file.")
         }.onSuccess {
             Toast.makeText(context, "Project saved", Toast.LENGTH_SHORT).show()
@@ -407,6 +407,10 @@ fun StudioScreen() {
             paperKind = project.paperKind
             paperStrength = project.paperStrength
             documentColorProfile = project.colorProfile
+            printBleedMm = project.printSettings.bleedMm
+            printSafeMarginMm = project.printSettings.safeMarginMm
+            printCropMarks = project.printSettings.showCropMarks
+            includePrintBleed = project.printSettings.includeBleed
             documentDpi = project.dpi
             canvasView?.setPaperTexture(project.paperKind, project.paperStrength)
             if (project.width == documentWidth && project.height == documentHeight) {
