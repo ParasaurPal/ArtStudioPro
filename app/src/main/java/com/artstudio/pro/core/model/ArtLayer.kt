@@ -49,5 +49,39 @@ data class ArtLayer(
 
     val bitmap: Bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas: Canvas = Canvas(bitmap)
+    var maskBitmap: Bitmap? = null
+        private set
+    var maskEnabled: Boolean = true
+
+    fun createMask(fillWhite: Boolean = true): Bitmap {
+        maskBitmap?.takeUnless { it.isRecycled }?.recycle()
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            maskBitmap = it
+            if (fillWhite) Canvas(it).drawColor(Color.WHITE)
+        }
+    }
+
+    fun ensureMask(): Bitmap = maskBitmap?.takeUnless { it.isRecycled } ?: createMask()
+
+    fun clearMask() {
+        maskBitmap?.takeUnless { it.isRecycled }?.eraseColor(Color.WHITE)
+    }
+
+    fun removeMask() {
+        maskBitmap?.takeUnless { it.isRecycled }?.recycle()
+        maskBitmap = null
+    }
+
+    fun renderMaskedBitmap(): Bitmap {
+        val result = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val mask = maskBitmap
+        if (maskEnabled && mask != null && !mask.isRecycled) {
+            Canvas(result).drawBitmap(mask, 0f, 0f, Paint().apply {
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            })
+        }
+        return result
+    }
+
     fun clear() = canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 }
