@@ -48,6 +48,10 @@ private val studioPalette = listOf(
 fun StudioScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
     var brushSize by remember { mutableFloatStateOf(40f) }
+    var brushOpacity by remember { mutableFloatStateOf(1f) }
+    var brushFlow by remember { mutableFloatStateOf(0.85f) }
+    var brushSpacing by remember { mutableFloatStateOf(0.08f) }
+    var brushStreamline by remember { mutableFloatStateOf(0.65f) }
     var activeColor by remember { mutableIntStateOf(AColor.BLACK) }
     var documentWidth by remember { mutableIntStateOf(2048) }
     var documentHeight by remember { mutableIntStateOf(2048) }
@@ -250,6 +254,20 @@ fun StudioScreen() {
                             Icon(Icons.Default.ColorLens, "Choose color", tint = Color(activeColor))
                         }
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Opacity", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushOpacity, onValueChange = { brushOpacity = it }, valueRange = 0.01f..1f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                        Text("${(brushOpacity * 100).toInt()}%", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Text("Flow", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushFlow, onValueChange = { brushFlow = it }, valueRange = 0.01f..1f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Spacing", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushSpacing, onValueChange = { brushSpacing = it }, valueRange = 0.02f..0.5f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                        Text("${(brushSpacing * 100).toInt()}%", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Text("Stabilize", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushStreamline, onValueChange = { brushStreamline = it }, valueRange = 0f..0.95f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                    }
                     Text("Layers (${canvasView?.layers?.size ?: 0}) · ${layerRefresh}", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -448,6 +466,10 @@ fun StudioScreen() {
                     },
                     update = { view ->
                         brush.baseSize = brushSize
+                        brush.baseOpacity = brushOpacity
+                        brush.flow = brushFlow
+                        brush.spacing = brushSpacing
+                        brush.streamline = brushStreamline
                         brush.sizeSource = dynamicsSource
                         brush.opacitySource = opacityDynamicsSource
                         brush.tipMask = tipMask
