@@ -145,6 +145,28 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         updateTransform()
     }
 
+    private fun drawLayer(
+        target: Canvas,
+        layer: ArtLayer,
+        paint: Paint,
+        destination: RectF? = null,
+        clipBase: Bitmap? = null
+    ) {
+        val clipped = if (layer.isClippedToBelow && clipBase != null) {
+            Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { temp ->
+                val tempCanvas = Canvas(temp)
+                tempCanvas.drawBitmap(layer.bitmap, 0f, 0f, null)
+                tempCanvas.drawBitmap(clipBase, 0f, 0f, Paint().apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                })
+            }
+        } else null
+        val source = clipped ?: layer.bitmap
+        if (destination == null) target.drawBitmap(source, 0f, 0f, paint)
+        else target.drawBitmap(source, null, destination, paint)
+        clipped?.recycle()
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (!transformReady) updateTransform()
@@ -153,10 +175,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         PaperTexture.draw(canvas, viewportRect, paperKind, paperStrength)
         val save = canvas.save()
         canvas.clipRect(viewportRect)
+        var clipBase: Bitmap? = null
         layers.filter { it.isVisible }.forEach { layer ->
             layerPaint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
             layerPaint.xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
-            canvas.drawBitmap(layer.bitmap, null, viewportRect, layerPaint)
+            drawLayer(canvas, layer, layerPaint, viewportRect, clipBase)
+            if (!layer.isClippedToBelow) clipBase = layer.bitmap
         }
         layerPaint.xfermode = null
         layerPaint.alpha = 255
