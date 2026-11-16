@@ -21,6 +21,9 @@ import com.artstudio.pro.core.brush.engine.StrokePoint
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.AnimationFrame
 import com.artstudio.pro.core.model.BlendMode
+import com.artstudio.pro.core.vector.VectorPath
+import com.artstudio.pro.core.vector.VectorNode
+import com.artstudio.pro.core.vector.VectorRenderer
 import com.artstudio.pro.core.paper.PaperKind
 import com.artstudio.pro.core.paper.PaperTexture
 import kotlin.math.min
@@ -577,8 +580,17 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             result
         } else null
         val drawable = masked ?: source
-        if (destination == null) target.drawBitmap(drawable, 0f, 0f, paint)
-        else target.drawBitmap(drawable, null, destination, paint)
+        if (destination == null) {
+            target.drawBitmap(drawable, 0f, 0f, paint)
+            VectorRenderer.draw(target, layer.vectorPaths)
+        } else {
+            target.drawBitmap(drawable, null, destination, paint)
+            val vectorSave = target.save()
+            target.translate(destination.left, destination.top)
+            target.scale(destination.width() / documentWidth, destination.height() / documentHeight)
+            VectorRenderer.draw(target, layer.vectorPaths)
+            target.restoreToCount(vectorSave)
+        }
         masked?.recycle()
         clipped?.recycle()
     }
@@ -614,6 +626,33 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         drawGrid(canvas)
         drawSelection(canvas)
         drawRulers(canvas)
+    }
+
+    fun addVectorPath(path: VectorPath) {
+        activeLayer.vectorPaths.add(path)
+        invalidate()
+    }
+
+    fun removeVectorPath(id: String) {
+        activeLayer.vectorPaths.removeAll { it.id == id }
+        invalidate()
+    }
+
+    fun moveVectorNode(pathId: String, nodeIndex: Int, x: Float, y: Float) {
+        val path = activeLayer.vectorPaths.firstOrNull { it.id == pathId } ?: return
+        if (nodeIndex !in path.nodes.indices) return
+        val updated = path.nodes.toMutableList()
+        val node = updated[nodeIndex]
+        val dx = x - node.x
+        val dy = y - node.y
+        updated[nodeIndex] = node.copy(
+            x = x, y = y,
+            controlInX = node.controlInX + dx, controlInY = node.controlInY + dy,
+            controlOutX = node.controlOutX + dx, controlOutY = node.controlOutY + dy
+        )
+        val index = activeLayer.vectorPaths.indexOf(path)
+        activeLayer.vectorPaths[index] = path.copy(nodes = updated)
+        invalidate()
     }
 
     fun addLayer(name: String = "Layer ${layers.size}"): Boolean {
