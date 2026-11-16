@@ -611,7 +611,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             val previousFrame = animationFrames[currentFrameIndex - 1]
             val onionPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { alpha = 42 }
             previousFrame.layers.filter { it.isVisible }.forEach { previousLayer ->
-                canvas.drawBitmap(previousLayer.bitmap, null, viewportRect, onionPaint)
+                val faded = Paint(onionPaint).apply { alpha = (previousLayer.opacity * 42f).toInt().coerceIn(0, 255) }
+                drawLayer(canvas, previousLayer, faded, viewportRect)
             }
         }
         var clipBase: Bitmap? = null
