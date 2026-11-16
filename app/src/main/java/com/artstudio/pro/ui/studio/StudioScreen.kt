@@ -67,6 +67,7 @@ fun StudioScreen() {
     var showColorPicker by remember { mutableStateOf(false) }
     var customColorHex by remember { mutableStateOf("#000000") }
     var showRenameLayer by remember { mutableStateOf(false) }
+    var showLayerAdjustments by remember { mutableStateOf(false) }
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
@@ -448,6 +449,7 @@ fun StudioScreen() {
                                     renameValue = selected.name
                                     showRenameLayer = true
                                 }) { Text("Rename") }
+                                TextButton(onClick = { showLayerAdjustments = true }) { Text("Adjust") }
                                 TextButton(onClick = {
                                     selected.isAlphaLocked = !selected.isAlphaLocked
                                     layerRefresh++
@@ -685,6 +687,51 @@ fun StudioScreen() {
             },
             confirmButton = {
                 TextButton(onClick = { showBrushLibrary = false }) { Text("Close") }
+            }
+        )
+    }
+
+    if (showLayerAdjustments) {
+        val selected = canvasView?.activeLayer
+        AlertDialog(
+            onDismissRequest = { showLayerAdjustments = false },
+            title = { Text("Layer adjustments") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (selected != null) {
+                        Text("Brightness · ${(selected.brightness * 100).toInt()}")
+                        Slider(value = selected.brightness, onValueChange = {
+                            selected.brightness = it
+                            layerRefresh++
+                            canvasView?.invalidate()
+                        }, valueRange = -1f..1f)
+                        Text("Contrast · ${(selected.contrast * 100).toInt()}%")
+                        Slider(value = selected.contrast, onValueChange = {
+                            selected.contrast = it
+                            layerRefresh++
+                            canvasView?.invalidate()
+                        }, valueRange = 0f..2f)
+                        Text("Saturation · ${(selected.saturation * 100).toInt()}%")
+                        Slider(value = selected.saturation, onValueChange = {
+                            selected.saturation = it
+                            layerRefresh++
+                            canvasView?.invalidate()
+                        }, valueRange = 0f..2f)
+                        TextButton(onClick = {
+                            selected.brightness = 0f
+                            selected.contrast = 1f
+                            selected.saturation = 1f
+                            layerRefresh++
+                            canvasView?.invalidate()
+                        }) { Text("Reset adjustments") }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLayerAdjustments = false }) { Text("Done") }
             }
         )
     }
