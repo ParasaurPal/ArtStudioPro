@@ -113,7 +113,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val diameter = brush.baseSize.coerceAtLeast(1f) * (minRatio + (1f - minRatio) * sizeFactor) * (1f + sizeJitter)
         val radius = diameter / 2f
         val scatterAngle = noise(x * 1.17f + y * 2.31f) * (Math.PI.toFloat() * 2f)
-        val scatterDistance = radius * brush.scatter.coerceIn(0f, 2f)
+        val scatterDistance = radius * (brush.scatter + brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.SCATTER_AMOUNT) * 2f).coerceIn(0f, 2f)
         val drawX = x + kotlin.math.cos(scatterAngle) * scatterDistance
         val drawY = y + kotlin.math.sin(scatterAngle) * scatterDistance
         val rotationBase = when (brush.angleSource) {
@@ -140,8 +140,9 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val opacityFactor = brush.opacityCurve.evaluate(opacityDynamics)
         val flowAlpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
             brush.flow.coerceIn(0f, 1f) * flowFactor * opacityFactor).toInt().coerceIn(0, 255)
-        val pigmentColor = if (brush.wetMixing && brush.wetness > 0f) {
-            PigmentMixer.mixPigments(previousPigmentColor, activeColor, (brush.wetness * 0.18f).coerceIn(0f, 1f)).also {
+        val wetness = maxOf(brush.wetness, brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.WETNESS))
+        val pigmentColor = if ((brush.wetMixing || brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.WET_MIXING) > 0f) && wetness > 0f) {
+            PigmentMixer.mixPigments(previousPigmentColor, activeColor, (wetness * 0.18f).coerceIn(0f, 1f)).also {
                 previousPigmentColor = it
             }
         } else activeColor
@@ -175,7 +176,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
             brush.medium == BrushMedium.WATERCOLOR -> {
                 canvas.drawCircle(drawX, drawY, radius, paint)
                 detailPaint.color = pigmentColor
-                detailPaint.alpha = (flowAlpha * 0.18f).toInt().coerceIn(0, 255)
+                detailPaint.alpha = (flowAlpha * (0.18f + brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.WET_EDGE) * 0.4f)).toInt().coerceIn(0, 255)
                 detailPaint.style = Paint.Style.STROKE
                 detailPaint.strokeWidth = (diameter * 0.10f).coerceAtLeast(1f)
                 canvas.drawCircle(drawX, drawY, radius * 0.88f, detailPaint)
@@ -188,8 +189,9 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 detailPaint.style = Paint.Style.STROKE
                 detailPaint.strokeCap = Paint.Cap.ROUND
                 detailPaint.strokeWidth = (diameter * 0.07f).coerceAtLeast(1f)
-                repeat(brush.bristleCount.coerceIn(1,48)) { i ->
-                    val offset = (i - (brush.bristleCount.coerceIn(1,48)-1)/2f) * diameter / brush.bristleCount.coerceIn(1,48)
+                val bristleCount = maxOf(brush.bristleCount, brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.BRISTLE_COUNT).toInt()).coerceIn(1,48)
+                repeat(bristleCount) { i ->
+                    val offset = (i - (bristleCount-1)/2f) * diameter / bristleCount
                     canvas.drawLine(drawX - radius * 0.48f, drawY + offset, drawX + radius * 0.48f, drawY + offset, detailPaint)
                 }
                 detailPaint.style = Paint.Style.FILL
@@ -227,13 +229,14 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 }
             }
             else -> {
-                val ovalHeight = diameter * brush.roundness.coerceIn(0.08f, 1f)
-                if (brush.hardness < 0.999f && !eraserMode) {
+                val ovalHeight = diameter * (brush.roundness * (1f - brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.TIP_ROUNDNESS) * .5f)).coerceIn(0.08f, 1f)
+                val effectiveHardness = (brush.hardness * (1f - brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.TIP_EDGE_SOFTNESS))).coerceIn(0.05f,1f)
+                if (effectiveHardness < 0.999f && !eraserMode) {
                     val center = Color.argb(flowAlpha, Color.red(pigmentColor), Color.green(pigmentColor), Color.blue(pigmentColor))
                     paint.shader = android.graphics.RadialGradient(
                         drawX, drawY, radius,
                         intArrayOf(center, Color.TRANSPARENT),
-                        floatArrayOf(brush.hardness.coerceIn(0f, 0.98f), 1f),
+                        floatArrayOf(effectiveHardness.coerceIn(0f, 0.98f), 1f),
                         android.graphics.Shader.TileMode.CLAMP
                     )
                 }
@@ -251,12 +254,13 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                         canvas.drawLine(drawX-radius*.65f,drawY+offset,drawX+radius*.65f,drawY+offset,detailPaint)
                     }
                 }
-                if (brush.textureStrength > 0f) {
+                val textureStrength = maxOf(brush.textureStrength, brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.TEXTURE_STRENGTH))
+                if (textureStrength > 0f) {
                     detailPaint.color = pigmentColor
-                    repeat((brush.textureStrength.coerceIn(0f,1f)*24).toInt()) { i ->
+                    repeat((textureStrength.coerceIn(0f,1f)*24).toInt()) { i ->
                         val angle=noise(x+i*13.7f)*Math.PI.toFloat()*2f
                         val distance=noise(y+i*7.3f)*radius
-                        detailPaint.alpha=(flowAlpha*brush.textureStrength*.55f).toInt().coerceIn(0,255)
+                        detailPaint.alpha=(flowAlpha*textureStrength*.55f).toInt().coerceIn(0,255)
                         val dot=(diameter*.008f*brush.textureScale.coerceIn(.2f,5f)).coerceAtLeast(.4f)
                         canvas.drawCircle(drawX+kotlin.math.cos(angle)*distance,drawY+kotlin.math.sin(angle)*distance,dot,detailPaint)
                     }
