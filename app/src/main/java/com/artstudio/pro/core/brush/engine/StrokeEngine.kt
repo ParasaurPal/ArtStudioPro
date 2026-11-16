@@ -10,6 +10,7 @@ import android.graphics.PorterDuffColorFilter
 import com.artstudio.pro.core.brush.model.BrushDefinition
 import com.artstudio.pro.core.brush.model.DynamicsSource
 import com.artstudio.pro.core.brush.model.BrushMedium
+import com.artstudio.pro.core.paint.PigmentMixer
 import kotlin.math.hypot
 
 data class StrokePoint(
@@ -36,6 +37,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
     private val detailPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val tipPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var stampIndex = 0
+    private var previousPigmentColor = activeColor
 
     private fun noise(seed: Float): Float {
         val value = kotlin.math.sin(seed * 12.9898f + stampIndex * 78.233f) * 43758.5453f
@@ -55,6 +57,8 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         targetY = point.y
         lastPressure = point.pressure
         currentStrokeAngle = 0f
+        previousPigmentColor = activeColor
+        stampIndex = 0
         applyPointDynamics(point)
         renderStamp(canvas, point.x, point.y, point.pressure)
     }
@@ -112,7 +116,12 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val scatterDistance = radius * brush.scatter.coerceIn(0f, 2f)
         val drawX = x + kotlin.math.cos(scatterAngle) * scatterDistance
         val drawY = y + kotlin.math.sin(scatterAngle) * scatterDistance
-        val rotationBase = if (brush.angleFollowsStroke) currentStrokeAngle else currentOrientation
+        val rotationBase = when (brush.angleSource) {
+            DynamicsSource.PRESSURE -> currentStrokeAngle * normalizedPressure
+            DynamicsSource.TILT -> currentOrientation + currentTilt
+            DynamicsSource.VELOCITY -> currentStrokeAngle + currentVelocity * Math.PI.toFloat()
+            DynamicsSource.FIXED -> if (brush.angleFollowsStroke) currentStrokeAngle else currentOrientation
+        }
         val rotationNoise = (noise(x + y + 17f) - 0.5f) * 2f * brush.rotationJitter.coerceIn(0f, 1f) * Math.PI.toFloat()
         val stampRotation = rotationBase + rotationNoise
         val opacityDynamics = when (brush.opacitySource) {
@@ -121,9 +130,22 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
             DynamicsSource.VELOCITY -> 1f - currentVelocity
             DynamicsSource.FIXED -> 1f
         }.coerceIn(0f, 1f)
+        val flowDynamics = when (brush.flowSource) {
+            DynamicsSource.PRESSURE -> normalizedPressure
+            DynamicsSource.TILT -> 1f - currentTilt / Math.PI.toFloat()
+            DynamicsSource.VELOCITY -> 1f - currentVelocity
+            DynamicsSource.FIXED -> 1f
+        }.coerceIn(0f, 1f)
+        val flowFactor = brush.flowCurve.evaluate(flowDynamics)
+        val opacityFactor = brush.opacityCurve.evaluate(opacityDynamics)
         val flowAlpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
-            brush.flow.coerceIn(0f, 1f) * opacityDynamics).toInt().coerceIn(0, 255)
-        paint.color = if (eraserMode) Color.WHITE else activeColor
+            brush.flow.coerceIn(0f, 1f) * flowFactor * opacityFactor).toInt().coerceIn(0, 255)
+        val pigmentColor = if (brush.wetMixing && brush.wetness > 0f) {
+            PigmentMixer.mixPigments(previousPigmentColor, activeColor, (brush.wetness * 0.18f).coerceIn(0f, 1f)).also {
+                previousPigmentColor = it
+            }
+        } else activeColor
+        paint.color = if (eraserMode) Color.WHITE else pigmentColor
         paint.alpha = when (brush.medium) {
             BrushMedium.WATERCOLOR -> (flowAlpha * 0.22f).toInt()
             BrushMedium.GRAPHITE -> (flowAlpha * 0.78f).toInt()
@@ -166,7 +188,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 detailPaint.style = Paint.Style.STROKE
                 detailPaint.strokeCap = Paint.Cap.ROUND
                 detailPaint.strokeWidth = (diameter * 0.07f).coerceAtLeast(1f)
-                repeat(3) { i ->
+                repeat(brush.bristleCount.coerceIn(1,48)) { i ->
                     val offset = (i - 1) * radius * 0.28f
                     canvas.drawLine(drawX - radius * 0.48f, drawY + offset, drawX + radius * 0.48f, drawY + offset, detailPaint)
                 }
@@ -204,7 +226,42 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                     canvas.drawCircle(px, py, dot, detailPaint)
                 }
             }
-            else -> canvas.drawCircle(drawX, drawY, radius, paint)
+            else -> {
+                val ovalHeight = diameter * brush.roundness.coerceIn(0.08f, 1f)
+                if (brush.hardness < 0.999f && !eraserMode) {
+                    val center = Color.argb(flowAlpha, Color.red(pigmentColor), Color.green(pigmentColor), Color.blue(pigmentColor))
+                    paint.shader = android.graphics.RadialGradient(
+                        drawX, drawY, radius,
+                        intArrayOf(center, Color.TRANSPARENT),
+                        floatArrayOf(brush.hardness.coerceIn(0f, 0.98f), 1f),
+                        android.graphics.Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.save()
+                canvas.rotate(Math.toDegrees(stampRotation.toDouble()).toFloat(), drawX, drawY)
+                canvas.drawOval(drawX-radius, drawY-ovalHeight/2f, drawX+radius, drawY+ovalHeight/2f, paint)
+                canvas.restore()
+                paint.shader = null
+                if (brush.medium == BrushMedium.OIL_IMPASTO && brush.bristleCount > 1) {
+                    detailPaint.color = pigmentColor
+                    detailPaint.alpha = (flowAlpha * (0.15f + brush.pigmentLoad.coerceIn(0f,1f)*0.35f)).toInt()
+                    detailPaint.strokeWidth = (diameter * 0.025f).coerceAtLeast(0.6f)
+                    repeat(brush.bristleCount.coerceIn(1,48)) { i ->
+                        val offset = (i - (brush.bristleCount-1)/2f) * diameter / (brush.bristleCount.coerceAtLeast(1))
+                        canvas.drawLine(drawX-radius*.65f,drawY+offset,drawX+radius*.65f,drawY+offset,detailPaint)
+                    }
+                }
+                if (brush.textureStrength > 0f) {
+                    detailPaint.color = pigmentColor
+                    repeat((brush.textureStrength.coerceIn(0f,1f)*24).toInt()) { i ->
+                        val angle=noise(x+i*13.7f)*Math.PI.toFloat()*2f
+                        val distance=noise(y+i*7.3f)*radius
+                        detailPaint.alpha=(flowAlpha*brush.textureStrength*.55f).toInt().coerceIn(0,255)
+                        val dot=(diameter*.008f*brush.textureScale.coerceIn(.2f,5f)).coerceAtLeast(.4f)
+                        canvas.drawCircle(drawX+kotlin.math.cos(angle)*distance,drawY+kotlin.math.sin(angle)*distance,dot,detailPaint)
+                    }
+                }
+            }
         }
         stampIndex++
     }
