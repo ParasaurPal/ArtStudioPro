@@ -1283,6 +1283,52 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    private fun renderLayersComposite(
+        sourceLayers: List<ArtLayer>,
+        backgroundColor: Int? = null,
+        includeVectors: Boolean = true
+    ): Bitmap {
+        val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
+        val outputCanvas = Canvas(output)
+        if (backgroundColor != null) outputCanvas.drawColor(backgroundColor)
+        else PaperTexture.draw(outputCanvas, documentRect, paperKind, paperStrength)
+        var clipBase: Bitmap? = null
+        sourceLayers.filter { isLayerVisible(it) }.forEach { layer ->
+            val source = layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)
+            if (includeVectors) VectorRenderer.draw(Canvas(source), layer.vectorPaths)
+            if (layer.maskEnabled) {
+                layer.maskBitmap?.let { mask ->
+                    Canvas(source).drawBitmap(mask, 0f, 0f, Paint().apply {
+                        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                    })
+                }
+            }
+            val clipped = if (layer.isClippedToBelow && clipBase != null) {
+                source.copy(Bitmap.Config.ARGB_8888, true).also { temp ->
+                    Canvas(temp).drawBitmap(clipBase!!, 0f, 0f, Paint().apply {
+                        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                    })
+                }
+            } else null
+            val rendered = clipped ?: source
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
+                layer.blendMode.applyTo(this)
+            }
+            layer.applyColorAdjustments(paint)
+            outputCanvas.drawBitmap(rendered, 0f, 0f, paint)
+            paint.colorFilter = null
+            if (!layer.isClippedToBelow) {
+                clipBase?.recycle()
+                clipBase = rendered.copy(Bitmap.Config.ARGB_8888, false)
+            }
+            clipped?.recycle()
+            source.recycle()
+        }
+        clipBase?.recycle()
+        return output
+    }
+
     fun renderComposite(backgroundColor: Int? = null): Bitmap =
         renderLayersComposite(layers, backgroundColor)
 
