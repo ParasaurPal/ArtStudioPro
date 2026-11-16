@@ -33,7 +33,7 @@ import kotlin.math.min
 
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
-enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT }
+enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT }
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
@@ -84,6 +84,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private var shapeStartY = 0f
     var textToolContent: String = "Text"
         private set
+    private var selectedVectorPathId: String? = null
+    private var selectedVectorNodeIndex: Int? = null
+    private var draggingVectorNode = false
     val hasSelection: Boolean get() = selectionRect != null
     private var selectionRect: RectF? = null
     private var selectionIsEllipse = false
@@ -446,6 +449,34 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         return save
     }
 
+    private fun drawVectorNodeHandles(canvas: Canvas) {
+        val pathId = selectedVectorPathId ?: return
+        val path = activeLayer.vectorPaths.firstOrNull { it.id == pathId } ?: return
+        val save = canvas.save()
+        canvas.concat(documentToView)
+        val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 205, 120); style = Paint.Style.FILL }
+        val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; style = Paint.Style.STROKE; strokeWidth = 2f }
+        path.nodes.forEachIndexed { index, node ->
+            val radius = if (index == selectedVectorNodeIndex) 18f else 12f
+            canvas.drawCircle(node.x, node.y, radius, handlePaint)
+            canvas.drawCircle(node.x, node.y, radius, outline)
+        }
+        canvas.restoreToCount(save)
+    }
+
+    private fun hitTestVectorNode(point: StrokePoint): Pair<String, Int>? {
+        val radius = 36f / zoomFactor.coerceAtLeast(.25f)
+        var best: Pair<String, Int>? = null
+        var bestDistance = radius
+        activeLayer.vectorPaths.forEach { path ->
+            path.nodes.forEachIndexed { index, node ->
+                val distance = kotlin.math.hypot(node.x - point.x, node.y - point.y)
+                if (distance < bestDistance) { bestDistance = distance; best = path.id to index }
+            }
+        }
+        return best
+    }
+
     private fun drawSelection(canvas: Canvas) {
         val rect = selectionRect ?: return
         val viewRect = RectF(rect)
@@ -630,6 +661,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         canvas.restoreToCount(save)
         drawGrid(canvas)
         drawSelection(canvas)
+        drawVectorNodeHandles(canvas)
         drawRulers(canvas)
     }
 
@@ -1017,6 +1049,34 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 }
             } else if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 isNavigating = false
+            }
+            return true
+        }
+        if (drawingTool == DrawingTool.VECTOR_EDIT) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    val point = documentPoint(event)
+                    val hit = hitTestVectorNode(point)
+                    selectedVectorPathId = hit?.first
+                    selectedVectorNodeIndex = hit?.second
+                    draggingVectorNode = hit != null
+                    invalidate()
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (draggingVectorNode) {
+                        val point = documentPoint(event)
+                        selectedVectorPathId?.let { id ->
+                            selectedVectorNodeIndex?.let { index -> moveVectorNode(id, index, point.x, point.y) }
+                        }
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    draggingVectorNode = false
+                    performClick()
+                    return true
+                }
             }
             return true
         }
