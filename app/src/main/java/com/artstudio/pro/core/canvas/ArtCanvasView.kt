@@ -356,7 +356,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layers.filter { it.isVisible }.forEach { layer ->
             layerPaint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
             layerPaint.xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
+            layer.applyColorAdjustments(layerPaint)
             drawLayer(canvas, layer, layerPaint, viewportRect, clipBase)
+            layerPaint.colorFilter = null
             if (!layer.isClippedToBelow) clipBase = layer.bitmap
         }
         layerPaint.xfermode = null
@@ -379,6 +381,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             name = "${source.name} copy", width = documentWidth, height = documentHeight,
             opacity = source.opacity, isVisible = source.isVisible,
             isAlphaLocked = source.isAlphaLocked, isClippedToBelow = source.isClippedToBelow,
+            brightness = source.brightness, contrast = source.contrast, saturation = source.saturation,
             blendMode = source.blendMode
         )
         copy.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
@@ -429,7 +432,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             alpha = (upper.opacity.coerceIn(0f, 1f) * 255f).toInt()
             xfermode = upper.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
         }
+        upper.applyColorAdjustments(paint)
         drawLayer(lower.canvas, upper, paint, clipBase = lower.bitmap)
+        paint.colorFilter = null
         lower.opacity = 1f
         layers.removeAt(activeLayerIndex)
         activeLayerIndex--
@@ -455,6 +460,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
                 xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
             }
+            layer.applyColorAdjustments(paint)
             val clipped = if (layer.isClippedToBelow && clipBase != null) {
                 Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { temp ->
                     val tempCanvas = Canvas(temp)
@@ -465,6 +471,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 }
             } else null
             mergeCanvas.drawBitmap(clipped ?: layer.bitmap, 0f, 0f, paint)
+            paint.colorFilter = null
             clipped?.recycle()
             if (!layer.isClippedToBelow) clipBase = layer.bitmap
         }
@@ -501,6 +508,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 }
             } else null
             outputCanvas.drawBitmap(clipped ?: layer.bitmap, 0f, 0f, paint)
+            paint.colorFilter = null
             clipped?.recycle()
             if (!layer.isClippedToBelow) clipBase = layer.bitmap
         }
