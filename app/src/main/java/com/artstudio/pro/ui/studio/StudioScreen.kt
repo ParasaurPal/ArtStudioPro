@@ -387,11 +387,15 @@ fun StudioScreen() {
                             opacityDynamicsSource = DynamicsSource.values()[(DynamicsSource.values().indexOf(opacityDynamicsSource) + 1) % DynamicsSource.values().size]
                         }) { Text("Opacity: ${opacityDynamicsSource.name.lowercase()}") }
                         TextButton(onClick = {
-                            canvasView?.addLayer()
+                            if (canvasView?.addLayer() == false) {
+                                Toast.makeText(context, "Layer memory limit reached for this canvas size.", Toast.LENGTH_LONG).show()
+                            }
                             layerRefresh++
                         }) { Text("New layer") }
                         TextButton(onClick = {
-                            canvasView?.duplicateActiveLayer()
+                            if (canvasView?.duplicateActiveLayer() == false) {
+                                Toast.makeText(context, "Layer memory limit reached for this canvas size.", Toast.LENGTH_LONG).show()
+                            }
                             layerRefresh++
                         }) { Text("Duplicate") }
                         TextButton(onClick = {
