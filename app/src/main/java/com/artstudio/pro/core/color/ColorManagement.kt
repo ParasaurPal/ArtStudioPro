@@ -39,6 +39,16 @@ object ColorManagement {
         val bb=(matrix[6]*r+matrix[7]*g+matrix[8]*b).coerceIn(0f,1f).pow(1f/2.4f)
         return Color.argb(Color.alpha(color),(rr*255).toInt(),(gg*255).toInt(),(bb*255).toInt())
     }
+    fun convertBitmap(source:android.graphics.Bitmap,from:ColorProfile,to:ColorProfile):android.graphics.Bitmap {
+        if(from==to)return source.copy(android.graphics.Bitmap.Config.ARGB_8888,true)
+        val out=source.copy(android.graphics.Bitmap.Config.ARGB_8888,true)
+        val pixels=IntArray(out.width*out.height)
+        out.getPixels(pixels,0,out.width,0,0,out.width,out.height)
+        for(i in pixels.indices)pixels[i]=convert(pixels[i],from,to)
+        out.setPixels(pixels,0,out.width,0,0,out.width,out.height)
+        return out
+    }
+
     fun harmonies(color:Int,harmony:ColorHarmony):List<Int> {
         val hsv=FloatArray(3);Color.colorToHSV(color,hsv)
         val offsets=when(harmony){
