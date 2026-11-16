@@ -200,7 +200,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
             }
             brush.medium == BrushMedium.OIL_IMPASTO -> {
                 canvas.drawCircle(drawX, drawY, radius, paint)
-                detailPaint.color = activeColor
+                detailPaint.color = pigmentColor
                 detailPaint.alpha = (flowAlpha * 0.42f).toInt().coerceIn(0, 255)
                 detailPaint.style = Paint.Style.STROKE
                 detailPaint.strokeCap = Paint.Cap.ROUND
