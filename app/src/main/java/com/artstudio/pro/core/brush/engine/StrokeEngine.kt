@@ -189,7 +189,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 detailPaint.strokeCap = Paint.Cap.ROUND
                 detailPaint.strokeWidth = (diameter * 0.07f).coerceAtLeast(1f)
                 repeat(brush.bristleCount.coerceIn(1,48)) { i ->
-                    val offset = (i - 1) * radius * 0.28f
+                    val offset = (i - (brush.bristleCount.coerceIn(1,48)-1)/2f) * diameter / brush.bristleCount.coerceIn(1,48)
                     canvas.drawLine(drawX - radius * 0.48f, drawY + offset, drawX + radius * 0.48f, drawY + offset, detailPaint)
                 }
                 detailPaint.style = Paint.Style.FILL
