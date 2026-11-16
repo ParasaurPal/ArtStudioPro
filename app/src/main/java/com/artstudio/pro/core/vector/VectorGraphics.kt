@@ -58,26 +58,27 @@ object VectorRenderer {
             canvas.drawPath(path,stroke)
         }
     }
-    fun toSvg(paths:List<VectorPath>,width:Int,height:Int):String {
-        val body=paths.joinToString("\n") { v ->
-            val p=toPath(v)
-            val points=v.nodes
-            if(points.isEmpty())"" else {
-                val commands=buildString {
-                    append("M ${points.first().x} ${points.first().y} ")
-                    for(i in 1 until points.size){
-                        val a=points[i-1];val b=points[i]
-                        if(a.controlOutX!=a.x || a.controlOutY!=a.y || b.controlInX!=b.x || b.controlInY!=b.y)
-                            append("C ${a.controlOutX} ${a.controlOutY}, ${b.controlInX} ${b.controlInY}, ${b.x} ${b.y} ")
-                        else append("L ${b.x} ${b.y} ")
-                    }
-                    if(v.closed)append("Z")
+    fun toSvgElements(paths:List<VectorPath>):String = paths.joinToString("\n") { v ->
+        val points=v.nodes
+        if(points.isEmpty())"" else {
+            val commands=buildString {
+                append("M ${points.first().x} ${points.first().y} ")
+                for(i in 1 until points.size){
+                    val a=points[i-1];val b=points[i]
+                    if(a.controlOutX!=a.x || a.controlOutY!=a.y || b.controlInX!=b.x || b.controlInY!=b.y)
+                        append("C ${a.controlOutX} ${a.controlOutY}, ${b.controlInX} ${b.controlInY}, ${b.x} ${b.y} ")
+                    else append("L ${b.x} ${b.y} ")
                 }
-                val fill=v.fillColor?.let { "#%06X".format(it and 0xffffff) } ?: "none"
-                val stroke="#%06X".format(v.strokeColor and 0xffffff)
-                "<path d=\"$commands\" fill=\"$fill\" stroke=\"$stroke\" stroke-width=\"${v.strokeWidth}\" opacity=\"${v.opacity}\"/>"
+                if(v.closed)append("Z")
             }
+            val fill=v.fillColor?.let { "#%06X".format(it and 0xffffff) } ?: "none"
+            val stroke="#%06X".format(v.strokeColor and 0xffffff)
+            "<path d=\"$commands\" fill=\"$fill\" stroke=\"$stroke\" stroke-width=\"${v.strokeWidth}\" opacity=\"${v.opacity}\"/>"
         }
+    }
+
+    fun toSvg(paths:List<VectorPath>,width:Int,height:Int):String {
+        val body=toSvgElements(paths)
         return "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"$width\" height=\"$height\" viewBox=\"0 0 $width $height\">\n$body\n</svg>"
     }
 }
