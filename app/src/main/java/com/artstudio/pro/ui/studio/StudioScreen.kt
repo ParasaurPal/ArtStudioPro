@@ -39,6 +39,8 @@ import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
 import com.artstudio.pro.core.paper.PaperKind
 import com.artstudio.pro.core.filters.ImageFilter
+import com.artstudio.pro.core.color.ColorProfile
+import com.artstudio.pro.core.color.ColorManagement
 import com.artstudio.pro.core.export.RasterFormatWriter
 import com.artstudio.pro.core.vector.VectorRenderer
 import com.artstudio.pro.core.print.PrintProduction
@@ -103,6 +105,8 @@ fun StudioScreen() {
     var opacityDynamicsSource by remember { mutableStateOf(DynamicsSource.PRESSURE) }
     var tipMask by remember { mutableStateOf(BitmapFactory.decodeFile(context.getFileStreamPath("custom_brush_tip.png").absolutePath)) }
     var paperKind by remember { mutableStateOf(PaperKind.SMOOTH) }
+    var documentColorProfile by remember { mutableStateOf(ColorProfile.SRGB) }
+    var showProfilePicker by remember { mutableStateOf(false) }
     var paperStrength by remember { mutableFloatStateOf(1f) }
     var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
@@ -115,7 +119,7 @@ fun StudioScreen() {
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
             context.contentResolver.openOutputStream(uri)?.use {
-                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength, documentDpi, view.animationFramesSnapshot(), view.currentFrameIndex)
+                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength, documentDpi, view.animationFramesSnapshot(), view.currentFrameIndex, documentColorProfile)
             } ?: error("Unable to open the selected file.")
         }.onSuccess {
             Toast.makeText(context, "Project saved", Toast.LENGTH_SHORT).show()
@@ -289,6 +293,7 @@ fun StudioScreen() {
         }.onSuccess { project ->
             paperKind = project.paperKind
             paperStrength = project.paperStrength
+            documentColorProfile = project.colorProfile
             documentDpi = project.dpi
             canvasView?.setPaperTexture(project.paperKind, project.paperStrength)
             if (project.width == documentWidth && project.height == documentHeight) {
@@ -458,6 +463,7 @@ fun StudioScreen() {
                             canvasView?.strokeEngine?.eraserMode = eraserMode
                         }) { Text(if (eraserMode) "Eraser on" else "Eraser") }
                         TextButton(onClick = { showPaperPicker = true }) { Text("Paper: ${paperKind.title}") }
+                        TextButton(onClick = { showProfilePicker = true }) { Text("Profile: ${documentColorProfile.name.replace('_',' ')}") }
                         TextButton(onClick = {
                             val view = canvasView
                             if (view != null) {
@@ -978,6 +984,37 @@ fun StudioScreen() {
             confirmButton = {
                 TextButton(onClick = { showBrushLibrary = false }) { Text("Close") }
             }
+        )
+    }
+
+    if (showProfilePicker) {
+        AlertDialog(
+            onDismissRequest = { showProfilePicker = false },
+            title = { Text("Document color profile") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ColorProfile.values().forEach { profile ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = documentColorProfile == profile, onClick = { documentColorProfile = profile })
+                            Column {
+                                Text(profile.displayName)
+                                Text(
+                                    when(profile) {
+                                        ColorProfile.SRGB -> "Standard web and general display space"
+                                        ColorProfile.DISPLAY_P3 -> "Wider display color gamut"
+                                        ColorProfile.ADOBE_RGB -> "Wide-gamut RGB workflow"
+                                        ColorProfile.GRAYSCALE -> "Monochrome document preview/export"
+                                        ColorProfile.CMYK_SWOP -> "CMYK print conversion simulation"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showProfilePicker = false }) { Text("Done") } }
         )
     }
 
