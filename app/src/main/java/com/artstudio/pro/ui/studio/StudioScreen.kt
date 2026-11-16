@@ -143,6 +143,9 @@ fun StudioScreen() {
     var documentColorProfile by remember { mutableStateOf(ColorProfile.SRGB) }
     var showProfilePicker by remember { mutableStateOf(false) }
     var showPrintSettings by remember { mutableStateOf(false) }
+    var showBrushPanel by remember { mutableStateOf(true) }
+    var showLayerPanel by remember { mutableStateOf(true) }
+    var showTimelinePanel by remember { mutableStateOf(true) }
     var printBleedMm by remember { mutableFloatStateOf(3f) }
     var printSafeMarginMm by remember { mutableFloatStateOf(5f) }
     var printCropMarks by remember { mutableStateOf(false) }
@@ -570,6 +573,12 @@ fun StudioScreen() {
         bottomBar = {
             Surface(color = Color(0xFF1E1E1E), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { showBrushPanel = !showBrushPanel }) { Text(if (showBrushPanel) "Hide brushes" else "Show brushes") }
+                        TextButton(onClick = { showLayerPanel = !showLayerPanel }) { Text(if (showLayerPanel) "Hide layers" else "Show layers") }
+                        TextButton(onClick = { showTimelinePanel = !showTimelinePanel }) { Text(if (showTimelinePanel) "Hide timeline" else "Show timeline") }
+                    }
+                    if (showBrushPanel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Size", color = Color.White)
                         Slider(
@@ -633,6 +642,8 @@ fun StudioScreen() {
                         Slider(value = sizeCurveP1, onValueChange = { sizeCurveP1 = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
                         Slider(value = sizeCurveP2, onValueChange = { sizeCurveP2 = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
                     }
+                    }
+                    if (showLayerPanel) {
                     Text("Layers (${canvasView?.layers?.size ?: 0}) · ${layerRefresh}", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -946,6 +957,8 @@ fun StudioScreen() {
                             }
                         }
                     }
+                    }
+                    if (showTimelinePanel) {
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1000,6 +1013,7 @@ fun StudioScreen() {
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                         )
                         Text("${canvasView?.currentFrameDuration() ?: 100} ms", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
                     }
                 }
             }
