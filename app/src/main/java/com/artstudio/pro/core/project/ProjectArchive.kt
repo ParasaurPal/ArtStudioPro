@@ -287,7 +287,7 @@ object ProjectArchive {
             dpi = manifest.dpi.coerceIn(36, 2400),
             frames = loadedFrames,
             currentFrameIndex = selectedIndex,
-            colorProfile = runCatching { ColorProfile.valueOf(manifest.colorProfile) }.getOrDefault(ColorProfile.SRGB),
+            colorProfile = ColorProfile.fromStoredName(manifest.colorProfile),
             groups = manifest.groups,
             printSettings = PrintSettings(
                 dpi = manifest.dpi,
