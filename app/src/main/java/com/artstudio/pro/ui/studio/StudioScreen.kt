@@ -295,7 +295,7 @@ fun StudioScreen() {
         ActivityResultContracts.CreateDocument("image/tiff")
     ) { uri ->
         if (uri != null) runCatching {
-            val source = renderProfiledComposite(AColor.WHITE)
+            val source = (canvasView ?: error("The canvas is not ready.")).renderComposite(AColor.WHITE)
             val bitmap = try { PrintProduction.preparePrintBitmap(source, PrintSettings(documentDpi, printBleedMm, printSafeMarginMm, printCropMarks, includePrintBleed)) } finally { source.recycle() }
             try {
                 context.contentResolver.openOutputStream(uri)?.use { RasterFormatWriter.writeTiffCmyk(bitmap,it,documentDpi) }
