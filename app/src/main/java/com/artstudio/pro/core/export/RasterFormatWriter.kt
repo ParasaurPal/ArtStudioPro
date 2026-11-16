@@ -61,9 +61,52 @@ object RasterFormatWriter {
         out.flush()
     }
 
+    fun writeTiffFloat16(bitmap:Bitmap,output:OutputStream,dpi:Int=300) {
+        require(bitmap.config==Bitmap.Config.RGBA_F16){"A 16-bit float bitmap is required."}
+        val entries=15
+        val ifdOffset=8
+        val ifdSize=2+entries*12+4
+        val bitsOffset=ifdOffset+ifdSize
+        val xResOffset=bitsOffset+8
+        val yResOffset=xResOffset+8
+        val sampleFormatOffset=yResOffset+8
+        val pixelOffset=sampleFormatOffset+8
+        val byteCount=bitmap.width.toLong()*bitmap.height*8L
+        require(byteCount<=Int.MAX_VALUE){"16-bit TIFF is too large for this device."}
+        val out=LittleEndianWriter(output)
+        out.ascii("II");out.u16(42);out.u32(ifdOffset.toLong())
+        out.u16(entries)
+        fun entry(tag:Int,type:Int,count:Long,value:Long){out.u16(tag);out.u16(type);out.u32(count);out.u32(value)}
+        entry(256,4,1,bitmap.width.toLong())
+        entry(257,4,1,bitmap.height.toLong())
+        entry(258,3,4,bitsOffset.toLong())
+        entry(259,3,1,1)
+        entry(262,3,1,2)
+        entry(273,4,1,pixelOffset.toLong())
+        entry(277,3,1,4)
+        entry(278,4,1,bitmap.height.toLong())
+        entry(279,4,1,byteCount)
+        entry(282,5,1,xResOffset.toLong())
+        entry(283,5,1,yResOffset.toLong())
+        entry(284,3,1,1)
+        entry(296,3,1,2)
+        entry(338,3,1,2)
+        entry(339,3,4,sampleFormatOffset.toLong())
+        out.u32(0)
+        repeat(4){out.u16(16)}
+        out.u32(dpi.toLong());out.u32(1)
+        out.u32(dpi.toLong());out.u32(1)
+        repeat(4){out.u16(3)}
+        val raw=java.nio.ByteBuffer.allocate(byteCount.toInt()).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        bitmap.copyPixelsToBuffer(raw)
+        out.bytes(raw.array())
+        out.flush()
+    }
+
     private class LittleEndianWriter(output:OutputStream){
         private val out=output.buffered()
         fun ascii(s:String){out.write(s.toByteArray(Charsets.US_ASCII))}
+        fun bytes(data:ByteArray){out.write(data)}
         fun u8(v:Int){out.write(v and 255)}
         fun u16(v:Int){u8(v);u8(v ushr 8)}
         fun u32(v:Long){u16((v and 65535).toInt());u16(((v ushr 16) and 65535).toInt())}
