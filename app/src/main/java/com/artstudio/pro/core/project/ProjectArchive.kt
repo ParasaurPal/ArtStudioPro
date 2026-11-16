@@ -3,6 +3,7 @@ package com.artstudio.pro.core.project
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import com.artstudio.pro.core.model.ArtLayer
+import com.artstudio.pro.core.paper.PaperKind
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -34,7 +35,9 @@ object ProjectArchive {
         val version: Int = 1,
         val width: Int,
         val height: Int,
-        val layers: List<LayerManifest>
+        val layers: List<LayerManifest>,
+        val paperKind: String = PaperKind.SMOOTH.name,
+        val paperStrength: Float = 1f
     )
 
     @Serializable
@@ -50,10 +53,19 @@ object ProjectArchive {
     data class LoadedProject(
         val width: Int,
         val height: Int,
-        val layers: List<ArtLayer>
+        val layers: List<ArtLayer>,
+        val paperKind: PaperKind = PaperKind.SMOOTH,
+        val paperStrength: Float = 1f
     )
 
-    fun save(output: OutputStream, width: Int, height: Int, layers: List<ArtLayer>) {
+    fun save(
+        output: OutputStream,
+        width: Int,
+        height: Int,
+        layers: List<ArtLayer>,
+        paperKind: PaperKind = PaperKind.SMOOTH,
+        paperStrength: Float = 1f
+    ) {
         require(width > 0 && height > 0) { "Project dimensions must be positive." }
         require(layers.isNotEmpty()) { "A project must contain at least one layer." }
         require(layers.all { it.width == width && it.height == height }) {
@@ -63,6 +75,8 @@ object ProjectArchive {
         val manifest = ProjectManifest(
             width = width,
             height = height,
+            paperKind = paperKind.name,
+            paperStrength = paperStrength.coerceIn(0f, 1f),
             layers = layers.mapIndexed { index, layer ->
                 LayerManifest(
                     file = "layers/layer_%03d.png".format(index),
@@ -148,6 +162,12 @@ object ProjectArchive {
                 bitmap.recycle()
             }
         }
-        return LoadedProject(manifest.width, manifest.height, loadedLayers)
+        return LoadedProject(
+            manifest.width,
+            manifest.height,
+            loadedLayers,
+            runCatching { PaperKind.valueOf(manifest.paperKind) }.getOrDefault(PaperKind.SMOOTH),
+            manifest.paperStrength.coerceIn(0f, 1f)
+        )
     }
 }
