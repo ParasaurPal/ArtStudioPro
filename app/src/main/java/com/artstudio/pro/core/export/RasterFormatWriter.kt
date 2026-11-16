@@ -2,11 +2,110 @@ package com.artstudio.pro.core.export
 
 import android.graphics.Bitmap
 import com.artstudio.pro.core.color.ColorManagement
+import com.artstudio.pro.core.color.ColorProfile
+import com.artstudio.pro.core.model.ArtLayer
+import com.artstudio.pro.core.vector.VectorRenderer
 import java.io.DataOutputStream
 import java.io.OutputStream
 
 /** Minimal standards-compliant flattened RGB PSD and baseline TIFF writers. */
 object RasterFormatWriter {
+    fun writeLayeredPsd(
+        layers:List<ArtLayer>,
+        composite:Bitmap,
+        output:OutputStream,
+        profile:ColorProfile=ColorProfile.SRGB,
+        isVisible:(ArtLayer)->Boolean={it.isVisible}
+    ) {
+        require(layers.isNotEmpty() && layers.size<=512){"PSD layer count is invalid."}
+        val width=composite.width;val height=composite.height
+        require(width in 1..16000&&height in 1..16000&&width.toLong()*height<=20_000_000L){"PSD dimensions exceed the mobile limit."}
+        require(layers.all{it.width==width&&it.height==height}){"PSD layers must match the composite dimensions."}
+        val ordered=layers.asReversed()
+        val pixelCount=width.toLong()*height
+        val channelLength=2L+pixelCount
+        val recordBytes=ordered.sumOf { layer ->
+            val name=layer.name.take(200).toByteArray(Charsets.UTF_8)
+            val padded=((name.size+1+3)/4)*4
+            62L+padded
+        }
+        val layerInfoLength=2L+recordBytes+ordered.size*4L*channelLength
+        val layerMaskLength=4L+layerInfoLength+4L
+        require(layerMaskLength<=Int.MAX_VALUE){"Layered PSD exceeds the supported file size."}
+        val out=java.io.DataOutputStream(output.buffered())
+        out.writeBytes("8BPS");out.writeShort(1);out.write(ByteArray(6))
+        out.writeShort(4);out.writeInt(height);out.writeInt(width);out.writeShort(8);out.writeShort(3)
+        out.writeInt(0);out.writeInt(0)
+        out.writeInt(layerMaskLength.toInt())
+        out.writeInt(layerInfoLength.toInt())
+        out.writeShort(ordered.size)
+        ordered.forEach { layer ->
+            out.writeInt(0);out.writeInt(0);out.writeInt(height);out.writeInt(width)
+            out.writeShort(4)
+            val channelIds=shortArrayOf(-1,0,1,2)
+            channelIds.forEach { id -> out.writeShort(id.toInt());out.writeInt(channelLength.toInt()) }
+            out.writeBytes("8BIM")
+            out.writeBytes(blendKey(layer.blendMode))
+            out.writeByte((layer.opacity.coerceIn(0f,1f)*255f).toInt())
+            out.writeByte(if(layer.isClippedToBelow)1 else 0)
+            out.writeByte(if(isVisible(layer))0 else 2)
+            out.writeByte(0)
+            val name=layer.name.take(200).toByteArray(Charsets.UTF_8)
+            val padded=((name.size+1+3)/4)*4
+            val extraLength=4+padded
+            out.writeInt(extraLength)
+            out.writeInt(0)
+            out.writeInt(0)
+            out.writeByte(name.size)
+            out.write(name)
+            repeat(padded-name.size-1){out.writeByte(0)}
+        }
+        ordered.forEach { layer ->
+            val raw=layer.renderMaskedBitmap()
+            VectorRenderer.draw(android.graphics.Canvas(raw),layer.vectorPaths)
+            val adjusted=android.graphics.Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888)
+            val adjustmentPaint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG)
+            layer.applyColorAdjustments(adjustmentPaint)
+            android.graphics.Canvas(adjusted).drawBitmap(raw,0f,0f,adjustmentPaint)
+            raw.recycle()
+            val profiled=if(profile==ColorProfile.SRGB)adjusted else ColorManagement.convertBitmap(adjusted,ColorProfile.SRGB,profile).also{adjusted.recycle()}
+            val row=IntArray(width)
+            val channelSelectors=listOf<(Int)->Int>({android.graphics.Color.alpha(it)},{android.graphics.Color.red(it)},{android.graphics.Color.green(it)},{android.graphics.Color.blue(it)})
+            channelSelectors.forEach { selector ->
+                out.writeShort(0)
+                for(y in 0 until height){
+                    profiled.getPixels(row,0,width,0,y,width,1)
+                    row.forEach { out.writeByte(selector(it)) }
+                }
+            }
+            profiled.recycle()
+        }
+        out.writeInt(0)
+        out.writeShort(0)
+        val row=IntArray(width)
+        val compositeChannels=listOf<(Int)->Int>({android.graphics.Color.red(it)},{android.graphics.Color.green(it)},{android.graphics.Color.blue(it)},{android.graphics.Color.alpha(it)})
+        compositeChannels.forEach { selector ->
+            for(y in 0 until height){
+                composite.getPixels(row,0,width,0,y,width,1)
+                row.forEach { out.writeByte(selector(it)) }
+            }
+        }
+        out.flush()
+    }
+
+    private fun blendKey(mode:com.artstudio.pro.core.model.BlendMode):String = when(mode) {
+        com.artstudio.pro.core.model.BlendMode.MULTIPLY -> "mul "
+        com.artstudio.pro.core.model.BlendMode.SCREEN -> "scrn"
+        com.artstudio.pro.core.model.BlendMode.OVERLAY -> "over"
+        com.artstudio.pro.core.model.BlendMode.DARKEN -> "dark"
+        com.artstudio.pro.core.model.BlendMode.LIGHTEN -> "lite"
+        com.artstudio.pro.core.model.BlendMode.COLOR_BURN -> "idiv"
+        com.artstudio.pro.core.model.BlendMode.COLOR_DODGE -> "div "
+        com.artstudio.pro.core.model.BlendMode.DIFFERENCE -> "diff"
+        com.artstudio.pro.core.model.BlendMode.EXCLUSION -> "smud"
+        else -> "norm"
+    }
+
     fun writePsd(bitmap:Bitmap,output:OutputStream) {
         val out=DataOutputStream(output.buffered())
         out.writeBytes("8BPS");out.writeShort(1);out.write(ByteArray(6))
