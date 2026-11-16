@@ -695,6 +695,7 @@ fun StudioScreen() {
                                 pigmentLoad = brushPigmentLoad,
                                 bristleCount = brushBristles.toInt(),
                                 wetMixing = brushWetMixing,
+                                advancedParameters = brush.advancedParameters.toMutableMap(),
                                 sizeSource = dynamicsSource,
                                 opacitySource = opacityDynamicsSource,
                                 tipMask = null
