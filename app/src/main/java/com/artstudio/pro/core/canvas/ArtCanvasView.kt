@@ -73,6 +73,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var showRulers: Boolean = false
         private set
+    var safeMarginPixels: Int = 0
+        private set
     var gridSpacing: Int = 64
         private set
     var symmetryMode: SymmetryMode = SymmetryMode.NONE
@@ -510,6 +512,27 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    fun setSafeMargin(marginPixels: Int) {
+        safeMarginPixels = marginPixels.coerceIn(0, minOf(documentWidth, documentHeight) / 3)
+        invalidate()
+    }
+
+    private fun drawSafeMargin(canvas: Canvas) {
+        if (safeMarginPixels <= 0) return
+        val safe = RectF(
+            safeMarginPixels.toFloat(), safeMarginPixels.toFloat(),
+            (documentWidth-safeMarginPixels).toFloat(), (documentHeight-safeMarginPixels).toFloat()
+        )
+        documentToView.mapRect(safe)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(150, 90, 210, 160)
+            style = Paint.Style.STROKE
+            strokeWidth = 1.5f
+            pathEffect = android.graphics.DashPathEffect(floatArrayOf(8f, 6f), 0f)
+        }
+        canvas.drawRect(safe, paint)
+    }
+
     fun setPerspectiveMode(mode: PerspectiveMode) {
         perspectiveMode = mode
         invalidate()
@@ -722,6 +745,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         drawSelection(canvas)
         drawVectorNodeHandles(canvas)
         drawRulers(canvas)
+        drawSafeMargin(canvas)
     }
 
     fun createFilterLayer(filter: ImageFilter, amount: Float = 1f): Boolean {
