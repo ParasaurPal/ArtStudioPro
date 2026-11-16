@@ -29,6 +29,7 @@ import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
+import com.artstudio.pro.core.paper.PaperKind
 
 private val studioPalette = listOf(
     AColor.BLACK, AColor.WHITE, AColor.RED, AColor.rgb(255, 145, 0),
@@ -47,6 +48,8 @@ fun StudioScreen() {
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
+    var showPaperPicker by remember { mutableStateOf(false) }
+    var paperKind by remember { mutableStateOf(PaperKind.SMOOTH) }
     var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
@@ -167,6 +170,7 @@ fun StudioScreen() {
                             eraserMode = !eraserMode
                             canvasView?.strokeEngine?.eraserMode = eraserMode
                         }) { Text(if (eraserMode) "Eraser on" else "Eraser") }
+                        TextButton(onClick = { showPaperPicker = true }) { Text("Paper: ${paperKind.title}") }
                         TextButton(onClick = {
                             canvasView?.addLayer()
                             layerRefresh++
@@ -230,6 +234,7 @@ fun StudioScreen() {
                     factory = { ctx ->
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             strokeEngine = StrokeEngine(brush, activeColor)
+                            setPaperTexture(paperKind)
                             pendingLayers?.let { replaceLayers(it) }
                             canvasView = this
                         }
@@ -239,6 +244,7 @@ fun StudioScreen() {
                         view.strokeEngine?.brush = brush
                         view.strokeEngine?.activeColor = activeColor
                         view.strokeEngine?.eraserMode = eraserMode
+                        view.setPaperTexture(paperKind)
                         canvasView = view
                     }
                 )
@@ -288,6 +294,67 @@ fun StudioScreen() {
             },
             confirmButton = {
                 TextButton(onClick = { showNewDocument = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+
+    if (showPaperPicker) {
+        AlertDialog(
+            onDismissRequest = { showPaperPicker = false },
+            title = { Text("Paper & surface") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "Choose a traditional surface. Texture is included in PNG exports and remains editable as a document setting.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    PaperKind.values().forEach { kind ->
+                        TextButton(
+                            onClick = {
+                                paperKind = kind
+                                canvasView?.setPaperTexture(kind)
+                                showPaperPicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    modifier = Modifier.size(30.dp),
+                                    color = if (kind == PaperKind.TRANSPARENT) Color(0xFF777777) else Color(kind.baseColor),
+                                    shape = MaterialTheme.shapes.small,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
+                                ) {}
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(kind.title, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(
+                                        when (kind) {
+                                            PaperKind.SMOOTH -> "Fine, nearly toothless surface"
+                                            PaperKind.COLD_PRESS -> "Pronounced watercolor tooth"
+                                            PaperKind.HOT_PRESS -> "Subtle, even watercolor grain"
+                                            PaperKind.WATERCOLOR -> "Deep watercolor texture and fibers"
+                                            PaperKind.CANVAS -> "Woven painting surface"
+                                            PaperKind.KRAFT -> "Warm brown drawing paper"
+                                            PaperKind.RECYCLED -> "Speckled natural paper"
+                                            PaperKind.TRANSPARENT -> "No paper background"
+                                        },
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                                if (paperKind == kind) Text("✓", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPaperPicker = false }) { Text("Close") }
             }
         )
     }
