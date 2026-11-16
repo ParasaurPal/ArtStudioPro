@@ -139,29 +139,71 @@ fun StudioScreen() {
             .onFailure { Toast.makeText(context, "JPEG export failed: ${it.message}", Toast.LENGTH_LONG).show() }
     }
 
+    val exportSpriteSheet = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/png")
+    ) { uri ->
+        if (uri != null) runCatching {
+            val view = canvasView ?: error("The canvas is not ready.")
+            val columns = kotlin.math.ceil(kotlin.math.sqrt(view.frameCount.toDouble())).toInt().coerceAtLeast(1)
+            val rows = kotlin.math.ceil(view.frameCount.toDouble() / columns).toInt().coerceAtLeast(1)
+            val scale = minOf(
+                1f,
+                kotlin.math.sqrt(20_000_000f / (documentWidth.toFloat() * documentHeight * view.frameCount))
+            )
+            val frameWidth = (documentWidth * scale).toInt().coerceAtLeast(1)
+            val frameHeight = (documentHeight * scale).toInt().coerceAtLeast(1)
+            val sheet = Bitmap.createBitmap(frameWidth * columns, frameHeight * rows, Bitmap.Config.ARGB_8888)
+            try {
+                val sheetCanvas = android.graphics.Canvas(sheet)
+                repeat(view.frameCount) { frameIndex ->
+                    val frame = view.renderFrameComposite(frameIndex)
+                    try {
+                        val left = (frameIndex % columns) * frameWidth
+                        val top = (frameIndex / columns) * frameHeight
+                        sheetCanvas.drawBitmap(
+                            frame, null,
+                            android.graphics.Rect(left, top, left + frameWidth, top + frameHeight),
+                            android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+                        )
+                    } finally { frame.recycle() }
+                }
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    check(sheet.compress(Bitmap.CompressFormat.PNG, 100, output)) { "Sprite sheet encoding failed." }
+                } ?: error("Unable to open the selected file.")
+            } finally { sheet.recycle() }
+        }.onSuccess { Toast.makeText(context, "Animation sprite sheet exported", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context, "Sprite sheet export failed: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
     val exportPdf = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri ->
         if (uri != null) runCatching {
-            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite()
+            val view = canvasView ?: error("The canvas is not ready.")
             val pageWidth = (documentWidth.toFloat() * 72f / documentDpi).toInt().coerceAtLeast(1)
             val pageHeight = (documentHeight.toFloat() * 72f / documentDpi).toInt().coerceAtLeast(1)
             val pdf = android.graphics.pdf.PdfDocument()
             try {
-                val page = pdf.startPage(
-                    android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
-                )
-                page.canvas.drawBitmap(
-                    bitmap, null,
-                    android.graphics.Rect(0, 0, pageWidth, pageHeight),
-                    android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
-                )
-                pdf.finishPage(page)
+                repeat(view.frameCount) { frameIndex ->
+                    val bitmap = view.renderFrameComposite(frameIndex)
+                    try {
+                        val page = pdf.startPage(
+                            android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, frameIndex + 1).create()
+                        )
+                        page.canvas.drawBitmap(
+                            bitmap, null,
+                            android.graphics.Rect(0, 0, pageWidth, pageHeight),
+                            android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+                        )
+                        pdf.finishPage(page)
+                    } finally {
+                        bitmap.recycle()
+                    }
+                }
                 context.contentResolver.openOutputStream(uri)?.use { pdf.writeTo(it) }
                     ?: error("Unable to open the selected file.")
             } finally {
                 pdf.close()
-                bitmap.recycle()
             }
         }.onSuccess { Toast.makeText(context, "Print PDF exported", Toast.LENGTH_SHORT).show() }
             .onFailure { Toast.makeText(context, "PDF export failed: ${it.message}", Toast.LENGTH_LONG).show() }
@@ -278,6 +320,7 @@ fun StudioScreen() {
                     TextButton(onClick = { exportJpg.launch("Artwork.jpg") }) { Text("JPG", color = Color.White) }
                     TextButton(onClick = { exportWebp.launch("Artwork.webp") }) { Text("WebP", color = Color.White) }
                     TextButton(onClick = { exportPdf.launch("Artwork.pdf") }) { Text("PDF", color = Color.White) }
+                    TextButton(onClick = { exportSpriteSheet.launch("Animation-Sheet.png") }) { Text("Sheet", color = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1E1E1E))
             )
