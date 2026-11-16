@@ -71,14 +71,21 @@ object FilterEngine {
         return out
     }
     private fun blur(src:Bitmap,radius:Int):Bitmap {
-        val scale=0.35f
-        val small=Bitmap.createScaledBitmap(src,(src.width*scale).toInt().coerceAtLeast(1),(src.height*scale).toInt().coerceAtLeast(1),true)
-        val out=Bitmap.createBitmap(small.width,small.height,Bitmap.Config.ARGB_8888)
-        val paint=android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG).apply { maskFilter=android.graphics.BlurMaskFilter(radius*scale,android.graphics.BlurMaskFilter.Blur.NORMAL) }
-        android.graphics.Canvas(out).drawBitmap(small,0f,0f,paint)
-        val result=Bitmap.createScaledBitmap(out,src.width,src.height,true)
-        small.recycle();out.recycle()
-        return result
+        val w=src.width;val h=src.height
+        val input=IntArray(w*h);src.getPixels(input,0,w,0,0,w,h)
+        val temp=IntArray(input.size);val output=IntArray(input.size)
+        val r=radius.coerceIn(1,32)
+        for(y in 0 until h) for(x in 0 until w){
+            var a=0L;var red=0L;var green=0L;var blue=0L;var count=0
+            for(k in -r..r){val px=(x+k).coerceIn(0,w-1);val c=input[y*w+px];a+=Color.alpha(c);red+=Color.red(c);green+=Color.green(c);blue+=Color.blue(c);count++}
+            temp[y*w+x]=Color.argb((a/count).toInt(),(red/count).toInt(),(green/count).toInt(),(blue/count).toInt())
+        }
+        for(y in 0 until h) for(x in 0 until w){
+            var a=0L;var red=0L;var green=0L;var blue=0L;var count=0
+            for(k in -r..r){val py=(y+k).coerceIn(0,h-1);val c=temp[py*w+x];a+=Color.alpha(c);red+=Color.red(c);green+=Color.green(c);blue+=Color.blue(c);count++}
+            output[y*w+x]=Color.argb((a/count).toInt(),(red/count).toInt(),(green/count).toInt(),(blue/count).toInt())
+        }
+        return Bitmap.createBitmap(output,w,h,Bitmap.Config.ARGB_8888)
     }
     private fun convolve(src:Bitmap,k:FloatArray,amount:Float):Bitmap {
         val w=src.width;val h=src.height;val input=IntArray(w*h);val output=IntArray(w*h)
