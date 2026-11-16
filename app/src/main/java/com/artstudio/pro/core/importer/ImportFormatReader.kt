@@ -23,15 +23,19 @@ object ImportFormatReader {
     fun decode(context:Context,uri:Uri):Bitmap {
         val mime=context.contentResolver.getType(uri)?.lowercase().orEmpty()
         val name=uri.lastPathSegment?.lowercase().orEmpty()
-        val bytes=if(mime.contains("photoshop")||mime.contains("tiff")||name.endsWith(".psd")||name.endsWith(".tif")||name.endsWith(".tiff")||mime.contains("svg")||name.endsWith(".svg")) {
+        val bytes=if(mime.contains("photoshop")||mime.contains("tiff")||name.endsWith(".psd")||name.endsWith(".tif")||name.endsWith(".tiff")||mime.contains("svg")||name.endsWith(".svg")||mime=="application/octet-stream") {
             context.contentResolver.openInputStream(uri)?.use{it.readBytes()}?:error("Unable to read file.")
         } else null
+        val isPsd = mime.contains("photoshop") || name.endsWith(".psd") || bytes?.let { it.size>=4 && String(it,0,4,Charsets.US_ASCII)=="8BPS" } == true
+        val isTiff = mime.contains("tiff") || name.endsWith(".tif") || name.endsWith(".tiff") || bytes?.let { it.size>=4 && it[0]=='I'.code.toByte() && it[1]=='I'.code.toByte() && it[2]==42.toByte() && it[3]==0.toByte() } == true
+        val isSvg = mime.contains("svg") || name.endsWith(".svg") || bytes?.let { String(it.take(64).toByteArray(),Charsets.UTF_8).trimStart().startsWith("<") } == true
+        val isPdf = mime.contains("pdf") || name.endsWith(".pdf") || bytes?.let { it.size>=4 && String(it,0,4,Charsets.US_ASCII)=="%PDF" } == true
         return when {
-            mime.contains("pdf")||name.endsWith(".pdf")->decodePdf(context,uri)
-            mime.contains("svg")||name.endsWith(".svg")->decodeSvg(bytes!!)
-            mime.contains("photoshop")||name.endsWith(".psd")->decodePsd(bytes!!)
-            mime.contains("tiff")||name.endsWith(".tif")||name.endsWith(".tiff")->decodeTiff(bytes!!)
-            else->context.contentResolver.openInputStream(uri)?.use{BitmapFactory.decodeStream(it)}?:error("Unsupported or invalid image.")
+            isPdf -> decodePdf(context,uri)
+            isSvg -> decodeSvg(bytes ?: error("SVG data is missing."))
+            isPsd -> decodePsd(bytes ?: error("PSD data is missing."))
+            isTiff -> decodeTiff(bytes ?: error("TIFF data is missing."))
+            else -> context.contentResolver.openInputStream(uri)?.use{BitmapFactory.decodeStream(it)} ?: error("Unsupported or invalid image.")
         } ?: error("The selected file could not be decoded.")
     }
 
