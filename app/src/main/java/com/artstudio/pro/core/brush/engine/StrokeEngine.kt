@@ -104,7 +104,14 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val minRatio = brush.minSizeRatio.coerceIn(0f, 1f)
         val diameter = brush.baseSize.coerceAtLeast(1f) * (minRatio + (1f - minRatio) * sizeFactor)
         val radius = diameter / 2f
-        val flowAlpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) * brush.flow.coerceIn(0f, 1f)).toInt().coerceIn(0, 255)
+        val opacityDynamics = when (brush.opacitySource) {
+            DynamicsSource.PRESSURE -> normalizedPressure
+            DynamicsSource.TILT -> 1f - currentTilt / Math.PI.toFloat()
+            DynamicsSource.VELOCITY -> 1f - currentVelocity
+            DynamicsSource.FIXED -> 1f
+        }.coerceIn(0f, 1f)
+        val flowAlpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
+            brush.flow.coerceIn(0f, 1f) * opacityDynamics).toInt().coerceIn(0, 255)
         paint.color = if (eraserMode) Color.WHITE else activeColor
         paint.alpha = when (brush.medium) {
             BrushMedium.WATERCOLOR -> (flowAlpha * 0.22f).toInt()
