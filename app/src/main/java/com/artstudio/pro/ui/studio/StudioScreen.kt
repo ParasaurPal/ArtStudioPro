@@ -32,6 +32,7 @@ import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.canvas.SymmetryMode
 import com.artstudio.pro.core.canvas.SelectionMode
 import com.artstudio.pro.core.canvas.DrawingTool
+import com.artstudio.pro.core.canvas.PerspectiveMode
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.AnimationFrame
 import com.artstudio.pro.core.model.BlendMode
@@ -548,6 +549,13 @@ fun StudioScreen() {
                         TextButton(onClick = {
                             canvasView?.let { it.setRulers(!it.showRulers); layerRefresh++ }
                         }) { Text(if (canvasView?.showRulers == true) "Rulers on" else "Rulers off") }
+                        TextButton(onClick = {
+                            val modes = PerspectiveMode.values()
+                            canvasView?.let { view ->
+                                view.setPerspectiveMode(modes[(modes.indexOf(view.perspectiveMode) + 1) % modes.size])
+                                layerRefresh++
+                            }
+                        }) { Text("Perspective: ${canvasView?.perspectiveMode?.name?.lowercase()?.replace('_',' ') ?: "off"}") }
                         TextButton(onClick = {
                             val modes = SelectionMode.values()
                             val view = canvasView
