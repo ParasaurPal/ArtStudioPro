@@ -518,7 +518,7 @@ fun StudioScreen() {
                 actions = {
                     TextButton(onClick = { showNewDocument = true }) { Text("New", color = Color.White) }
                     TextButton(onClick = { openProject.launch(arrayOf("*/*")) }) { Text("Open", color = Color.White) }
-                    TextButton(onClick = { importImage.launch(arrayOf("image/*", "application/pdf", "application/vnd.adobe.photoshop", "image/tiff", "image/svg+xml")) }) { Text("Import", color = Color.White) }
+                    TextButton(onClick = { importImage.launch(arrayOf("image/*", "application/pdf", "application/vnd.adobe.photoshop", "image/vnd.adobe.photoshop", "application/octet-stream", "image/tiff", "image/svg+xml")) }) { Text("Import", color = Color.White) }
                     TextButton(onClick = { saveProject.launch("Artwork.asp") }) { Text("Save", color = Color.White) }
                     TextButton(onClick = { exportPng.launch("Artwork.png") }) { Text("PNG", color = Color.White) }
                     TextButton(onClick = { exportJpg.launch("Artwork.jpg") }) { Text("JPG", color = Color.White) }
