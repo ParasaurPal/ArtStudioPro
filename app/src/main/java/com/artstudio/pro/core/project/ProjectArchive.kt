@@ -9,6 +9,7 @@ import com.artstudio.pro.core.model.LayerGroup
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.paper.PaperKind
 import com.artstudio.pro.core.color.ColorProfile
+import com.artstudio.pro.core.print.PrintSettings
 import com.artstudio.pro.core.vector.VectorPath
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -42,7 +43,11 @@ object ProjectArchive {
         val frames: List<FrameManifest> = emptyList(),
         val currentFrameIndex: Int = 0,
         val colorProfile: String = ColorProfile.SRGB.name,
-        val groups: List<LayerGroup> = emptyList()
+        val groups: List<LayerGroup> = emptyList(),
+        val bleedMm: Float = 3f,
+        val safeMarginMm: Float = 5f,
+        val showCropMarks: Boolean = false,
+        val includeBleed: Boolean = true
     )
 
     @Serializable
@@ -79,7 +84,8 @@ object ProjectArchive {
         val frames: List<AnimationFrame> = emptyList(),
         val currentFrameIndex: Int = 0,
         val colorProfile: ColorProfile = ColorProfile.SRGB,
-        val groups: List<LayerGroup> = emptyList()
+        val groups: List<LayerGroup> = emptyList(),
+        val printSettings: PrintSettings = PrintSettings(dpi = dpi)
     )
 
     private fun layerManifest(layer: ArtLayer, file: String) = LayerManifest(
@@ -125,7 +131,8 @@ object ProjectArchive {
         frames: List<AnimationFrame> = emptyList(),
         currentFrameIndex: Int = 0,
         colorProfile: ColorProfile = ColorProfile.SRGB,
-        groups: List<LayerGroup> = emptyList()
+        groups: List<LayerGroup> = emptyList(),
+        printSettings: PrintSettings = PrintSettings(dpi = dpi)
     ) {
         require(width > 0 && height > 0) { "Project dimensions must be positive." }
         require(layers.isNotEmpty()) { "A project must contain at least one layer." }
@@ -161,7 +168,11 @@ object ProjectArchive {
             frames = frameManifests,
             currentFrameIndex = selectedIndex,
             colorProfile = colorProfile.name,
-            groups = groups
+            groups = groups,
+            bleedMm = printSettings.bleedMm,
+            safeMarginMm = printSettings.safeMarginMm,
+            showCropMarks = printSettings.showCropMarks,
+            includeBleed = printSettings.includeBleed
         )
 
         ZipOutputStream(output.buffered()).use { zip ->
@@ -274,7 +285,14 @@ object ProjectArchive {
             frames = loadedFrames,
             currentFrameIndex = selectedIndex,
             colorProfile = runCatching { ColorProfile.valueOf(manifest.colorProfile) }.getOrDefault(ColorProfile.SRGB),
-            groups = manifest.groups
+            groups = manifest.groups,
+            printSettings = PrintSettings(
+                dpi = manifest.dpi,
+                bleedMm = manifest.bleedMm.coerceIn(0f,30f),
+                safeMarginMm = manifest.safeMarginMm.coerceIn(0f,50f),
+                showCropMarks = manifest.showCropMarks,
+                includeBleed = manifest.includeBleed
+            )
         )
     }
 }
