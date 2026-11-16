@@ -34,14 +34,15 @@ object ColorManagement {
         if(to==ColorProfile.GRAYSCALE){val y=(.2126f*Color.red(color)+.7152f*Color.green(color)+.0722f*Color.blue(color)).toInt();return Color.argb(Color.alpha(color),y,y,y)}
         if(to==ColorProfile.CMYK_SWOP)return fromCmyk(toCmyk(color))
         if(from==ColorProfile.CMYK_SWOP)return color
-        val gamma=when(from){ColorProfile.ADOBE_RGB->2.2f;else->2.4f}
+        val gamma=when(from){ColorProfile.WIDE_GAMUT_RGB_1998->2.2f;else->2.4f}
         val r=(Color.red(color)/255f).pow(gamma);val g=(Color.green(color)/255f).pow(gamma);val b=(Color.blue(color)/255f).pow(gamma)
+        val outputGamma=if(to==ColorProfile.WIDE_GAMUT_RGB_1998)2.2f else 2.4f
         val matrix=when {
             from==ColorProfile.SRGB && to==ColorProfile.DISPLAY_P3 -> floatArrayOf(.8225f,.1774f,0f,.0332f,.9668f,0f,.0171f,.0724f,.9105f)
             from==ColorProfile.DISPLAY_P3 && to==ColorProfile.SRGB -> floatArrayOf(1.2249f,-.2247f,0f,-.042f,1.042f,0f,-.0197f,-.0786f,1.0983f)
             else -> floatArrayOf(1f,0f,0f,0f,1f,0f,0f,0f,1f)
         }
-        val rr=(matrix[0]*r+matrix[1]*g+matrix[2]*b).coerceIn(0f,1f).pow(1f/2.4f)
+        val rr=(matrix[0]*r+matrix[1]*g+matrix[2]*b).coerceIn(0f,1f).pow(1f/outputGamma)
         val gg=(matrix[3]*r+matrix[4]*g+matrix[5]*b).coerceIn(0f,1f).pow(1f/2.4f)
         val bb=(matrix[6]*r+matrix[7]*g+matrix[8]*b).coerceIn(0f,1f).pow(1f/2.4f)
         return Color.argb(Color.alpha(color),(rr*255).toInt(),(gg*255).toInt(),(bb*255).toInt())
