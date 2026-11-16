@@ -37,7 +37,8 @@ object BrushLibrary {
 
     private fun encodeBrush(brush: BrushDefinition): BrushDefinition = brush.copy(
         advancedParameters = brush.advancedParameters.toMutableMap(),
-        tipMaskPngBase64 = brush.tipMask?.takeUnless { it.isRecycled }?.let(::encodeTip) ?: brush.tipMaskPngBase64
+        tipMaskPngBase64 = brush.tipMask?.takeUnless { it.isRecycled }?.let(::encodeTip) ?: brush.tipMaskPngBase64,
+        texturePngBase64 = brush.textureBitmap?.takeUnless { it.isRecycled }?.let(::encodeTip) ?: brush.texturePngBase64
     )
 
     private fun restoreTip(brush: BrushDefinition): BrushDefinition {
@@ -47,9 +48,16 @@ object BrushLibrary {
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             }.getOrNull()
         }
+        val texture = brush.texturePngBase64?.let { encoded ->
+            runCatching {
+                val bytes = Base64.decode(encoded, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }.getOrNull()
+        }
         return brush.copy(
             advancedParameters = brush.advancedParameters.toMutableMap(),
-            tipMask = bitmap
+            tipMask = bitmap,
+            textureBitmap = texture
         )
     }
 
