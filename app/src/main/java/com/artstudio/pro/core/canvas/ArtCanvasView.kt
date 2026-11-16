@@ -933,7 +933,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun createFilterLayer(filter: ImageFilter, amount: Float = 1f): Boolean {
         if (layers.size >= maxLayerCount) return false
-        val source = activeLayer.renderMaskedBitmap()
+        val source = activeLayer.renderMaskedBitmap().also { VectorRenderer.draw(Canvas(it), activeLayer.vectorPaths) }
         val filtered = try { FilterEngine.apply(source, filter, amount) } finally { source.recycle() }
         val layer = ArtLayer(name = "${filter.label} adjustment", width = documentWidth, height = documentHeight)
         layer.canvas.drawBitmap(filtered, 0f, 0f, null)
