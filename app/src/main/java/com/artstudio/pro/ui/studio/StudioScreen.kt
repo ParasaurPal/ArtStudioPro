@@ -340,11 +340,12 @@ fun StudioScreen() {
     ) { uri ->
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
-            val raw = view.renderRasterOnlyComposite()
+            val raw = view.renderSvgRasterComposite()
             val bitmap = try { ColorManagement.convertBitmap(raw, ColorProfile.SRGB, documentColorProfile) } finally { raw.recycle() }
             try {
                 val paths = view.layers.filter { layer ->
-                    layer.isVisible && (layer.groupId?.let { id -> view.layerGroups.firstOrNull { it.id == id }?.isVisible } ?: true)
+                    layer.isVisible && layer.maskBitmap == null && !layer.isClippedToBelow && layer.blendMode == BlendMode.NORMAL &&
+                        (layer.groupId?.let { id -> view.layerGroups.firstOrNull { it.id == id }?.isVisible } ?: true)
                 }.flatMap { layer -> layer.vectorPaths.map { it.copy(opacity = (it.opacity * layer.opacity).coerceIn(0f,1f)) } }
                 val svg = SvgExporter.embedRaster(bitmap, VectorRenderer.toSvgElements(paths))
                 context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(svg) }
