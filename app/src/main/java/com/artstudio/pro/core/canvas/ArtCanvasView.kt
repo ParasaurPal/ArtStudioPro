@@ -1263,7 +1263,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         return renderLayersComposite(frame.layers, backgroundColor)
     }
 
-    fun addImageLayer(bitmap: Bitmap, name: String = "Imported image") {
+    fun addImageLayer(bitmap: Bitmap, name: String = "Imported image"): Boolean {
+        if (layers.size >= maxLayerCount) return false
         val layer = ArtLayer(name = name, width = documentWidth, height = documentHeight)
         val scale = min(documentWidth.toFloat() / bitmap.width, documentHeight.toFloat() / bitmap.height)
         val width = bitmap.width * scale
@@ -1274,6 +1275,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layers.add(layer)
         activeLayerIndex = layers.lastIndex
         invalidate()
+        return true
     }
 
     private fun documentPoint(event: MotionEvent): StrokePoint {
