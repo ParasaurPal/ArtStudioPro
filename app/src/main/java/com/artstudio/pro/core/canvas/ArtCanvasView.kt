@@ -60,7 +60,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private val dirtyBounds = RectF()
     private var hasDirtyBounds = false
     private val undoTileSize = 128
-    private val maxUndoEntries = 20
+    private val maxUndoEntries = 200
 
     val canUndo: Boolean get() = undoHistory.isNotEmpty()
     val canRedo: Boolean get() = redoHistory.isNotEmpty()
@@ -199,7 +199,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val copy = ArtLayer(
             name = "${source.name} copy", width = documentWidth, height = documentHeight,
             opacity = source.opacity, isVisible = source.isVisible,
-            isAlphaLocked = source.isAlphaLocked, blendMode = source.blendMode
+            isAlphaLocked = source.isAlphaLocked, isClippedToBelow = source.isClippedToBelow,\n            blendMode = source.blendMode
         )
         copy.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
         layers.add(activeLayerIndex + 1, copy)
@@ -249,7 +249,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             alpha = (upper.opacity.coerceIn(0f, 1f) * 255f).toInt()
             xfermode = upper.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
         }
-        lower.canvas.drawBitmap(upper.bitmap, 0f, 0f, paint)
+        drawLayer(lower.canvas, upper, paint, clipBase = lower.bitmap)
         lower.opacity = 1f
         layers.removeAt(activeLayerIndex)
         activeLayerIndex--
