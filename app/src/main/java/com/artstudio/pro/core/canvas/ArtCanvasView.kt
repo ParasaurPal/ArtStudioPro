@@ -649,7 +649,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         var clipBase: Bitmap? = null
         layers.filter { it.isVisible }.forEach { layer ->
             layerPaint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-            layerPaint.xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
+            layer.blendMode.applyTo(layerPaint)
             layer.applyColorAdjustments(layerPaint)
             drawLayer(canvas, layer, layerPaint, viewportRect, clipBase)
             layerPaint.colorFilter = null
@@ -840,7 +840,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val lower = layers[activeLayerIndex - 1]
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
             alpha = (upper.opacity.coerceIn(0f, 1f) * 255f).toInt()
-            xfermode = upper.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
+            upper.blendMode.applyTo(this)
         }
         upper.applyColorAdjustments(paint)
         drawLayer(lower.canvas, upper, paint, clipBase = lower.bitmap)
@@ -871,7 +871,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layers.filter { it.isVisible }.forEach { layer ->
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-                xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
+                layer.blendMode.applyTo(this)
             }
             layer.applyColorAdjustments(paint)
             val clipped = if (layer.isClippedToBelow && clipBase != null) {
