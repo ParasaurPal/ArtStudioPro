@@ -151,9 +151,9 @@ fun StudioScreen() {
     var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
-    val brush = remember(brushMedium, selectedBrushPreset?.id) {
+    val brush = remember(brushMedium, selectedBrushPreset?.id, customBrushTexture) {
         selectedBrushPreset?.copy(advancedParameters = selectedBrushPreset?.advancedParameters?.toMutableMap() ?: BrushParameter.defaults())
-            ?: BrushDefinition("medium-${brushMedium.name.lowercase()}", brushMedium.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, brushMedium)
+            ?: BrushDefinition("medium-${brushMedium.name.lowercase()}", brushMedium.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, brushMedium).apply { textureBitmap = customBrushTexture }
     }
 
     fun renderProfiledComposite(backgroundColor: Int? = null): Bitmap {
@@ -504,6 +504,29 @@ fun StudioScreen() {
         }
     }
 
+    val importBrushTexture = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) runCatching {
+            val decoded = context.contentResolver.openInputStream(uri)?.use(BitmapFactory::decodeStream)
+                ?: error("Unable to read the brush texture.")
+            try {
+                val scale = minOf(1f, 512f / maxOf(decoded.width, decoded.height).toFloat())
+                if (scale < 1f) Bitmap.createScaledBitmap(
+                    decoded, (decoded.width * scale).toInt().coerceAtLeast(1),
+                    (decoded.height * scale).toInt().coerceAtLeast(1), true
+                ).also { if (it !== decoded) customBrushTexture?.takeIf { old -> old !== it && !old.isRecycled }?.recycle() }
+                else decoded.copy(Bitmap.Config.ARGB_8888, false)
+            } finally { decoded.recycle() }
+        }.onSuccess { texture ->
+            selectedBrushPreset = null
+            customBrushTexture = texture
+            brushTexture = .5f
+            layerRefresh++
+            Toast.makeText(context,"Custom brush texture loaded",Toast.LENGTH_SHORT).show()
+        }.onFailure { Toast.makeText(context,"Brush texture import failed: ${it.message}",Toast.LENGTH_LONG).show() }
+    }
+
     val importImage = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -759,6 +782,7 @@ fun StudioScreen() {
                         TextButton(onClick = { exportBrushLibrary.launch("ArtStudioPro-brushes.json") }) { Text("Export brushes") }
                         TextButton(onClick = { importBrushLibrary.launch(arrayOf("application/json", "text/plain")) }) { Text("Import brushes") }
                         TextButton(onClick = { importBrushTip.launch(arrayOf("image/*")) }) { Text(if (tipMask == null) "Import tip" else "Change tip") }
+                        TextButton(onClick = { importBrushTexture.launch(arrayOf("image/*")) }) { Text(if (customBrushTexture == null && brush.textureBitmap == null) "Import texture" else "Change texture") }
                         if (tipMask != null) {
                             TextButton(onClick = {
                                 tipMask?.takeIf { !it.isRecycled }?.recycle()
@@ -1022,6 +1046,7 @@ fun StudioScreen() {
                         brush.sizeCurve = DynamicsCurve(sizeCurveP1, sizeCurveP2)
                         brush.opacitySource = opacityDynamicsSource
                         brush.tipMask = brush.tipMask ?: tipMask
+                        brush.textureBitmap = brush.textureBitmap ?: customBrushTexture
                         view.strokeEngine?.brush = brush
                         view.strokeEngine?.activeColor = activeColor
                         view.strokeEngine?.eraserMode = eraserMode
