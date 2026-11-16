@@ -643,6 +643,10 @@ fun StudioScreen() {
                             layerRefresh++
                         }) { Text(if (canvasView?.activeLayer?.maskEnabled == false) "Mask off" else "Mask on") }
                         TextButton(onClick = {
+                            canvasView?.toggleActiveLayerMaskEditing()
+                            layerRefresh++
+                        }) { Text(if (canvasView?.isEditingLayerMask == true) "Editing mask" else "Edit mask") }
+                        TextButton(onClick = {
                             canvasView?.removeActiveLayerMask()
                             layerRefresh++
                         }) { Text("Remove mask") }
