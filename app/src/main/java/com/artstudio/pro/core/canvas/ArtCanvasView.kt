@@ -941,6 +941,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             width = documentWidth,
             height = documentHeight,
             opacity = sourceLayer.opacity,
+            brightness = sourceLayer.brightness,
+            contrast = sourceLayer.contrast,
+            saturation = sourceLayer.saturation,
             blendMode = sourceLayer.blendMode,
             groupId = sourceLayer.groupId
         )
