@@ -293,13 +293,20 @@ fun StudioScreen() {
     }
 
     val exportPsd = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("image/vnd.adobe.photoshop")
+        ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
         if (uri != null) runCatching {
+            val view = canvasView ?: error("The canvas is not ready.")
             val bitmap = renderProfiledComposite(AColor.WHITE)
-            try { context.contentResolver.openOutputStream(uri)?.use { RasterFormatWriter.writePsd(bitmap,it) } ?: error("Unable to open the selected file.") }
-            finally { bitmap.recycle() }
-        }.onSuccess { Toast.makeText(context,"PSD exported",Toast.LENGTH_SHORT).show() }
+            try {
+                val visible: (ArtLayer) -> Boolean = { layer ->
+                    layer.isVisible && (layer.groupId?.let { id -> view.layerGroups.firstOrNull { it.id == id }?.isVisible } ?: true)
+                }
+                context.contentResolver.openOutputStream(uri)?.use {
+                    RasterFormatWriter.writeLayeredPsd(view.layers,bitmap,it,documentColorProfile,visible)
+                } ?: error("Unable to open the selected file.")
+            } finally { bitmap.recycle() }
+        }.onSuccess { Toast.makeText(context,"Layered PSD exported",Toast.LENGTH_SHORT).show() }
             .onFailure { Toast.makeText(context,"PSD export failed: ${it.message}",Toast.LENGTH_LONG).show() }
     }
 
