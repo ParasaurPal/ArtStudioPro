@@ -54,52 +54,78 @@ object FilterEngine {
     private fun blend(a:Float,b:Float,t:Float)= (a+(b-a)*t).toInt().coerceIn(0,255)
     private fun mapPixels(src:Bitmap, transform:(Int)->Int):Bitmap {
         val out=src.copy(Bitmap.Config.ARGB_8888,true)
-        val pixels=IntArray(out.width*out.height)
-        out.getPixels(pixels,0,out.width,0,0,out.width,out.height)
-        for(i in pixels.indices) pixels[i]=transform(pixels[i])
-        out.setPixels(pixels,0,out.width,0,0,out.width,out.height)
+        val row=IntArray(out.width)
+        for(y in 0 until out.height){
+            out.getPixels(row,0,out.width,0,y,out.width,1)
+            for(x in row.indices)row[x]=transform(row[x])
+            out.setPixels(row,0,out.width,0,y,out.width,1)
+        }
         return out
     }
     private fun pixelate(src:Bitmap, block:Int):Bitmap {
         val out=Bitmap.createBitmap(src.width,src.height,Bitmap.Config.ARGB_8888)
-        val c=android.graphics.Canvas(out); val p=android.graphics.Paint()
+        val c=android.graphics.Canvas(out);val p=android.graphics.Paint()
+        val row=IntArray(src.width)
         var y=0
-        while(y<src.height){var x=0;while(x<src.width){
-            val color=src.getPixel(x,y);p.color=color
-            c.drawRect(x.toFloat(),y.toFloat(),(x+block).toFloat(),(y+block).toFloat(),p);x+=block
-        };y+=block}
+        while(y<src.height){
+            src.getPixels(row,0,src.width,0,y,src.width,1)
+            var x=0
+            while(x<src.width){
+                p.color=row[x]
+                c.drawRect(x.toFloat(),y.toFloat(),(x+block).toFloat(),(y+block).toFloat(),p)
+                x+=block
+            }
+            y+=block
+        }
         return out
     }
     private fun blur(src:Bitmap,radius:Int):Bitmap {
-        val w=src.width;val h=src.height
-        val input=IntArray(w*h);src.getPixels(input,0,w,0,0,w,h)
-        val temp=IntArray(input.size);val output=IntArray(input.size)
-        val r=radius.coerceIn(1,32)
-        for(y in 0 until h) for(x in 0 until w){
-            var a=0L;var red=0L;var green=0L;var blue=0L;var count=0
-            for(k in -r..r){val px=(x+k).coerceIn(0,w-1);val c=input[y*w+px];a+=Color.alpha(c);red+=Color.red(c);green+=Color.green(c);blue+=Color.blue(c);count++}
-            temp[y*w+x]=Color.argb((a/count).toInt(),(red/count).toInt(),(green/count).toInt(),(blue/count).toInt())
+        val w=src.width;val h=src.height;val r=radius.coerceIn(1,32)
+        val horizontal=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
+        val sourceRow=IntArray(w);val blurredRow=IntArray(w)
+        for(y in 0 until h){
+            src.getPixels(sourceRow,0,w,0,y,w,1)
+            for(x in 0 until w){
+                var a=0L;var red=0L;var green=0L;var blue=0L;var count=0
+                for(k in -r..r){val color=sourceRow[(x+k).coerceIn(0,w-1)];a+=Color.alpha(color);red+=Color.red(color);green+=Color.green(color);blue+=Color.blue(color);count++}
+                blurredRow[x]=Color.argb((a/count).toInt(),(red/count).toInt(),(green/count).toInt(),(blue/count).toInt())
+            }
+            horizontal.setPixels(blurredRow,0,w,0,y,w,1)
         }
-        for(y in 0 until h) for(x in 0 until w){
-            var a=0L;var red=0L;var green=0L;var blue=0L;var count=0
-            for(k in -r..r){val py=(y+k).coerceIn(0,h-1);val c=temp[py*w+x];a+=Color.alpha(c);red+=Color.red(c);green+=Color.green(c);blue+=Color.blue(c);count++}
-            output[y*w+x]=Color.argb((a/count).toInt(),(red/count).toInt(),(green/count).toInt(),(blue/count).toInt())
+        val output=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
+        val sourceColumn=IntArray(h);val blurredColumn=IntArray(h)
+        for(x in 0 until w){
+            horizontal.getPixels(sourceColumn,0,1,x,0,1,h)
+            for(y in 0 until h){
+                var a=0L;var red=0L;var green=0L;var blue=0L;var count=0
+                for(k in -r..r){val color=sourceColumn[(y+k).coerceIn(0,h-1)];a+=Color.alpha(color);red+=Color.red(color);green+=Color.green(color);blue+=Color.blue(color);count++}
+                blurredColumn[y]=Color.argb((a/count).toInt(),(red/count).toInt(),(green/count).toInt(),(blue/count).toInt())
+            }
+            output.setPixels(blurredColumn,0,1,x,0,1,h)
         }
-        return Bitmap.createBitmap(output,w,h,Bitmap.Config.ARGB_8888)
+        horizontal.recycle()
+        return output
     }
     private fun convolve(src:Bitmap,k:FloatArray,amount:Float):Bitmap {
-        val w=src.width;val h=src.height;val input=IntArray(w*h);val output=IntArray(w*h)
-        src.getPixels(input,0,w,0,0,w,h)
-        for(y in 0 until h) for(x in 0 until w){
-            var rr=0f;var gg=0f;var bb=0f
-            for(ky in -1..1) for(kx in -1..1){
-                val px=(x+kx).coerceIn(0,w-1);val py=(y+ky).coerceIn(0,h-1);val c=input[py*w+px];val weight=k[(ky+1)*3+kx+1]
-                rr+=Color.red(c)*weight;gg+=Color.green(c)*weight;bb+=Color.blue(c)*weight
+        val w=src.width;val h=src.height
+        val rows=Array(3){IntArray(w)}
+        val output=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
+        val resultRow=IntArray(w)
+        for(y in 0 until h){
+            for(ky in -1..1)src.getPixels(rows[ky+1],0,w,0,(y+ky).coerceIn(0,h-1),w,1)
+            for(x in 0 until w){
+                var rr=0f;var gg=0f;var bb=0f
+                for(ky in -1..1)for(kx in -1..1){
+                    val color=rows[ky+1][(x+kx).coerceIn(0,w-1)]
+                    val weight=k[(ky+1)*3+kx+1]
+                    rr+=Color.red(color)*weight;gg+=Color.green(color)*weight;bb+=Color.blue(color)*weight
+                }
+                val base=rows[1][x];val a=Color.alpha(base)
+                resultRow[x]=Color.argb(a,blend(Color.red(base).toFloat(),rr.coerceIn(0f,255f),amount),blend(Color.green(base).toFloat(),gg.coerceIn(0f,255f),amount),blend(Color.blue(base).toFloat(),bb.coerceIn(0f,255f),amount))
             }
-            val base=input[y*w+x];val a=Color.alpha(base)
-            output[y*w+x]=Color.argb(a,blend(Color.red(base).toFloat(),rr.coerceIn(0f,255f),amount),blend(Color.green(base).toFloat(),gg.coerceIn(0f,255f),amount),blend(Color.blue(base).toFloat(),bb.coerceIn(0f,255f),amount))
+            output.setPixels(resultRow,0,w,0,y,w,1)
         }
-        return Bitmap.createBitmap(output,w,h,Bitmap.Config.ARGB_8888)
+        return output
     }
     private fun hueRotate(r:Float,g:Float,b:Float,degrees:Float):FloatArray {
         val angle=degrees*PI.toFloat()/180f;val c=cos(angle);val s=sin(angle)
