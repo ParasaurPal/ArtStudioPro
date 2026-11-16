@@ -34,6 +34,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     var activeLayerIndex: Int = 0
         private set
     val activeLayer: ArtLayer get() = layers[activeLayerIndex.coerceIn(0, layers.lastIndex)]
+    private val maxLayerCount: Int = (64_000_000L / (documentWidth.toLong() * documentHeight.toLong()).coerceAtLeast(1L)).coerceIn(2L, 32L).toInt()
     var strokeEngine: StrokeEngine? = null
     var paperKind: PaperKind = PaperKind.SMOOTH
         private set
@@ -390,13 +391,16 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         drawSelection(canvas)
     }
 
-    fun addLayer(name: String = "Layer ${layers.size}") {
+    fun addLayer(name: String = "Layer ${layers.size}"): Boolean {
+        if (layers.size >= maxLayerCount) return false
         layers.add(ArtLayer(name = name, width = documentWidth, height = documentHeight))
         activeLayerIndex = layers.lastIndex
         invalidate()
+        return true
     }
 
-    fun duplicateActiveLayer() {
+    fun duplicateActiveLayer(): Boolean {
+        if (layers.size >= maxLayerCount) return false
         val source = activeLayer
         val copy = ArtLayer(
             name = "${source.name} copy", width = documentWidth, height = documentHeight,
@@ -409,6 +413,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layers.add(activeLayerIndex + 1, copy)
         activeLayerIndex++
         invalidate()
+        return true
     }
 
     fun deleteActiveLayer() {
@@ -464,6 +469,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun replaceLayers(newLayers: List<ArtLayer>) {
         require(newLayers.isNotEmpty())
+        require(newLayers.size <= maxLayerCount) { "This project has more layers than this canvas can safely hold on this device." }
         require(newLayers.all { it.width == documentWidth && it.height == documentHeight })
         layers.clear()
         layers.addAll(newLayers)
