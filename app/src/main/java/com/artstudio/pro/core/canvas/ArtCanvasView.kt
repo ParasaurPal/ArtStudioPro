@@ -21,6 +21,7 @@ import com.artstudio.pro.core.brush.engine.StrokePoint
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.AnimationFrame
 import com.artstudio.pro.core.model.BlendMode
+import com.artstudio.pro.core.model.LayerGroup
 import com.artstudio.pro.core.vector.VectorPath
 import com.artstudio.pro.core.vector.VectorNode
 import com.artstudio.pro.core.vector.VectorRenderer
@@ -38,6 +39,7 @@ enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON,
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
+    val layerGroups = mutableListOf<LayerGroup>()
     var layers = mutableListOf(
         ArtLayer(name = "Background", width = documentWidth, height = documentHeight).apply { clear() }
     )
@@ -228,7 +230,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             brightness = source.brightness,
             contrast = source.contrast,
             saturation = source.saturation,
-            blendMode = source.blendMode
+            blendMode = source.blendMode,
+            groupId = source.groupId
         ).also {
             if (copyPixels) it.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
             it.vectorPaths.addAll(source.vectorPaths)
@@ -737,7 +740,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         if (onionSkinEnabled && currentFrameIndex > 0) {
             val previousFrame = animationFrames[currentFrameIndex - 1]
             val onionPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { alpha = 42 }
-            previousFrame.layers.filter { it.isVisible }.forEach { previousLayer ->
+            previousFrame.layers.filter { isLayerVisible(it) }.forEach { previousLayer ->
                 val faded = Paint(onionPaint).apply { alpha = (previousLayer.opacity * 42f).toInt().coerceIn(0, 255) }
                 drawLayer(canvas, previousLayer, faded, viewportRect)
             }
@@ -968,6 +971,36 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    private fun isLayerVisible(layer: ArtLayer): Boolean =
+        layer.isVisible && (layer.groupId?.let { id -> layerGroups.firstOrNull { it.id == id }?.isVisible } ?: true)
+
+    fun createLayerGroup(name: String = "Group ${layerGroups.size + 1}"): LayerGroup {
+        val group = LayerGroup(name = name)
+        layerGroups.add(group)
+        activeLayer.groupId = group.id
+        invalidate()
+        return group
+    }
+
+    fun assignActiveLayerToGroup(groupId: String?) {
+        if (groupId != null && layerGroups.none { it.id == groupId }) return
+        activeLayer.groupId = groupId
+        invalidate()
+    }
+
+    fun toggleLayerGroupVisibility(groupId: String) {
+        layerGroups.firstOrNull { it.id == groupId }?.let { it.isVisible = !it.isVisible }
+        invalidate()
+    }
+
+    fun replaceLayerGroups(groups: List<LayerGroup>) {
+        layerGroups.clear()
+        layerGroups.addAll(groups)
+        val valid = groups.map { it.id }.toSet()
+        layers.forEach { if (it.groupId !in valid) it.groupId = null }
+        invalidate()
+    }
+
     fun addLayer(name: String = "Layer ${layers.size}"): Boolean {
         if (layers.size >= maxLayerCount) return false
         layers.add(ArtLayer(name = name, width = documentWidth, height = documentHeight))
@@ -984,7 +1017,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             opacity = source.opacity, isVisible = source.isVisible,
             isAlphaLocked = source.isAlphaLocked, isClippedToBelow = source.isClippedToBelow,
             brightness = source.brightness, contrast = source.contrast, saturation = source.saturation,
-            blendMode = source.blendMode
+            blendMode = source.blendMode,
+            groupId = source.groupId
         )
         copy.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
         copy.vectorPaths.addAll(source.vectorPaths)
