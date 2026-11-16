@@ -233,6 +233,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     fun selectFrame(index: Int) {
         if (index !in animationFrames.indices || index == currentFrameIndex) return
         commitStroke()
+        isEditingLayerMask = false
         currentFrameIndex = index
         layers = animationFrames[index].layers
         activeLayerIndex = activeLayerIndex.coerceIn(0, layers.lastIndex)
@@ -425,6 +426,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun removeActiveLayerMask() {
         activeLayer.removeMask()
+        isEditingLayerMask = false
         invalidate()
     }
 
@@ -821,6 +823,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     fun selectLayer(index: Int) {
         require(index in layers.indices)
         activeLayerIndex = index
+        isEditingLayerMask = false
         invalidate()
     }
 
