@@ -137,8 +137,9 @@ object ProjectArchive {
         require(manifest.format == "artstudio-project" && manifest.version == 1) {
             "This project version is not supported."
         }
-        require(manifest.width in 1..20000 && manifest.height in 1..20000) {
-            "Project dimensions are outside the supported range."
+        require(manifest.width in 1..20000 && manifest.height in 1..20000 &&
+            manifest.width.toLong() * manifest.height.toLong() <= 20_000_000L) {
+            "Project dimensions exceed the safe mobile canvas memory limit."
         }
         require(manifest.layers.isNotEmpty() && manifest.layers.size <= 512) {
             "The project layer count is invalid."
