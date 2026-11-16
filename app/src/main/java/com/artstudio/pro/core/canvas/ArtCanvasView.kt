@@ -418,14 +418,17 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             }
             DrawingTool.SPEECH_BALLOON -> {
                 val balloonBottom = (bottom - (bottom - top) * 0.18f).coerceAtLeast(top + 1f)
-                target.drawOval(left, top, right, balloonBottom, shapePaint)
                 val tail = Path().apply {
                     moveTo(left + (right - left) * 0.22f, balloonBottom - 2f)
                     lineTo(left + (right - left) * 0.12f, bottom)
                     lineTo(left + (right - left) * 0.42f, balloonBottom - 2f)
                     close()
                 }
+                val fillPaint = Paint(shapePaint).apply { color = Color.WHITE; style = Paint.Style.FILL }
+                target.drawPath(tail, fillPaint)
+                target.drawOval(left, top, right, balloonBottom, fillPaint)
                 target.drawPath(tail, shapePaint)
+                target.drawOval(left, top, right, balloonBottom, shapePaint)
             }
             DrawingTool.TEXT -> {
                 val style = (if (textBold) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL) or
