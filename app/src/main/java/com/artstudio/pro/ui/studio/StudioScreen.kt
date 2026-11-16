@@ -82,6 +82,7 @@ fun StudioScreen() {
     var sizeCurveP1 by remember { mutableFloatStateOf(.1f) }
     var sizeCurveP2 by remember { mutableFloatStateOf(1f) }
     var activeColor by remember { mutableIntStateOf(AColor.BLACK) }
+    var gradientColorIndex by remember { mutableIntStateOf(1) }
     var documentWidth by remember { mutableIntStateOf(2048) }
     var documentHeight by remember { mutableIntStateOf(2048) }
     var documentDpi by remember { mutableIntStateOf(300) }
@@ -642,6 +643,10 @@ fun StudioScreen() {
                         }) { Text("Text content") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = { showFilterPicker = true }) { Text("Filters") }
+                        TextButton(onClick = {
+                            gradientColorIndex = (gradientColorIndex + 1) % studioPalette.size
+                            canvasView?.setGradientEndColor(studioPalette[gradientColorIndex])
+                        }) { Text("Gradient end") }
                         TextButton(onClick = { mixColorA = activeColor; showPigmentMixer = true }) { Text("Pigment mixer") }
                         TextButton(onClick = { canvasView?.addVectorRectangle(); layerRefresh++ }) { Text("Vector rect") }
                         TextButton(onClick = { canvasView?.addVectorEllipse(); layerRefresh++ }) { Text("Vector ellipse") }
