@@ -44,6 +44,6 @@ data class BrushDefinition(
     var wetMixing: Boolean = false,
     var flowCurve: DynamicsCurve = DynamicsCurve(),
     var opacityCurve: DynamicsCurve = DynamicsCurve(),
-    val sizeCurve: DynamicsCurve = DynamicsCurve(),
+    var sizeCurve: DynamicsCurve = DynamicsCurve(),
     @Transient var tipMask: Bitmap? = null
 )
