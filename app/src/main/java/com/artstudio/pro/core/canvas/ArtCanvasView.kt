@@ -498,6 +498,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
                 xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
             }
+            layer.applyColorAdjustments(paint)
             val clipped = if (layer.isClippedToBelow && clipBase != null) {
                 Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { temp ->
                     val tempCanvas = Canvas(temp)
