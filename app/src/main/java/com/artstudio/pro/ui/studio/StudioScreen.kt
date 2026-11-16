@@ -106,6 +106,7 @@ fun StudioScreen() {
     var showTextContentDialog by remember { mutableStateOf(false) }
     var comicTextContent by remember { mutableStateOf("Text") }
     var showLayerAdjustments by remember { mutableStateOf(false) }
+    var showBlendModePicker by remember { mutableStateOf(false) }
     var showTransformDialog by remember { mutableStateOf(false) }
     var transformScaleX by remember { mutableFloatStateOf(1f) }
     var transformScaleY by remember { mutableFloatStateOf(1f) }
@@ -831,6 +832,7 @@ fun StudioScreen() {
                                     showRenameLayer = true
                                 }) { Text("Rename") }
                                 TextButton(onClick = { showLayerAdjustments = true }) { Text("Adjust") }
+                                TextButton(onClick = { showBlendModePicker = true }) { Text("Blend: ${canvasView?.activeLayer?.blendMode?.name?.lowercase()?.replace('_',' ') ?: "normal"}") }
                                 TextButton(onClick = { showTransformDialog = true }) { Text("Transform") }
                                 TextButton(onClick = { canvasView?.transformActiveLayer(scaleX = -1f); layerRefresh++ }) { Text("Flip H") }
                                 TextButton(onClick = { canvasView?.transformActiveLayer(scaleY = -1f); layerRefresh++ }) { Text("Flip V") }
@@ -1354,6 +1356,41 @@ fun StudioScreen() {
                 }) { Text("Create filter layer") }
             },
             dismissButton = { TextButton(onClick = { showFilterPicker = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showBlendModePicker) {
+        AlertDialog(
+            onDismissRequest = { showBlendModePicker = false },
+            title = { Text("Layer blend mode · 35 modes") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    BlendMode.values().forEach { mode ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = canvasView?.activeLayer?.blendMode == mode,
+                                onClick = {
+                                    canvasView?.activeLayer?.blendMode = mode
+                                    layerRefresh++
+                                    showBlendModePicker = false
+                                    canvasView?.invalidate()
+                                }
+                            )
+                            Text(mode.name.replace('_',' ').lowercase().replaceFirstChar { it.uppercase() },
+                                modifier = Modifier.clickable {
+                                    canvasView?.activeLayer?.blendMode = mode
+                                    layerRefresh++
+                                    showBlendModePicker = false
+                                    canvasView?.invalidate()
+                                })
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showBlendModePicker = false }) { Text("Done") } }
         )
     }
 
