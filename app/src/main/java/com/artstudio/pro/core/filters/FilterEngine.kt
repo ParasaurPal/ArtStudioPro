@@ -18,6 +18,7 @@ enum class ImageFilter(val label: String) {
 object FilterEngine {
     fun apply(source: Bitmap, filter: ImageFilter, amount: Float = 1f): Bitmap {
         val strength = amount.coerceIn(0f, 1f)
+        if (strength <= 0f) return source.copy(Bitmap.Config.ARGB_8888, true)
         return when (filter) {
             ImageFilter.GAUSSIAN_BLUR -> blur(source, (1f + strength * 24f).toInt())
             ImageFilter.SHARPEN -> convolve(source, floatArrayOf(0f,-1f,0f,-1f,5f,-1f,0f,-1f,0f), strength)
