@@ -40,17 +40,19 @@ object ColorManagement {
             else -> floatArrayOf(1f,0f,0f,0f,1f,0f,0f,0f,1f)
         }
         val rr=(matrix[0]*r+matrix[1]*g+matrix[2]*b).coerceIn(0f,1f).pow(1f/outputGamma)
-        val gg=(matrix[3]*r+matrix[4]*g+matrix[5]*b).coerceIn(0f,1f).pow(1f/2.4f)
-        val bb=(matrix[6]*r+matrix[7]*g+matrix[8]*b).coerceIn(0f,1f).pow(1f/2.4f)
+        val gg=(matrix[3]*r+matrix[4]*g+matrix[5]*b).coerceIn(0f,1f).pow(1f/outputGamma)
+        val bb=(matrix[6]*r+matrix[7]*g+matrix[8]*b).coerceIn(0f,1f).pow(1f/outputGamma)
         return Color.argb(Color.alpha(color),(rr*255).toInt(),(gg*255).toInt(),(bb*255).toInt())
     }
     fun convertBitmap(source:android.graphics.Bitmap,from:ColorProfile,to:ColorProfile):android.graphics.Bitmap {
         if(from==to)return source.copy(android.graphics.Bitmap.Config.ARGB_8888,true)
         val out=source.copy(android.graphics.Bitmap.Config.ARGB_8888,true)
-        val pixels=IntArray(out.width*out.height)
-        out.getPixels(pixels,0,out.width,0,0,out.width,out.height)
-        for(i in pixels.indices)pixels[i]=convert(pixels[i],from,to)
-        out.setPixels(pixels,0,out.width,0,0,out.width,out.height)
+        val row=IntArray(out.width)
+        for(y in 0 until out.height){
+            out.getPixels(row,0,out.width,0,y,out.width,1)
+            for(x in row.indices)row[x]=convert(row[x],from,to)
+            out.setPixels(row,0,out.width,0,y,out.width,1)
+        }
         return out
     }
 
