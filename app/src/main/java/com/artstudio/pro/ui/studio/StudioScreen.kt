@@ -29,6 +29,7 @@ import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.brush.model.DynamicsSource
 import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.model.ArtLayer
+import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
 import com.artstudio.pro.core.paper.PaperKind
@@ -287,6 +288,55 @@ fun StudioScreen() {
                                     Spacer(Modifier.width(6.dp))
                                     Text(layer.name, color = Color.White, maxLines = 1)
                                 }
+                            }
+                        }
+                    }
+                    canvasView?.activeLayer?.let { selected ->
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Layer", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+                                TextButton(onClick = {
+                                    selected.isAlphaLocked = !selected.isAlphaLocked
+                                    layerRefresh++
+                                    canvasView?.invalidate()
+                                }) { Text(if (selected.isAlphaLocked) "Alpha locked" else "Alpha free") }
+                                TextButton(onClick = {
+                                    selected.isClippedToBelow = !selected.isClippedToBelow
+                                    layerRefresh++
+                                    canvasView?.invalidate()
+                                }) { Text(if (selected.isClippedToBelow) "Clipped" else "Unclipped") }
+                                TextButton(onClick = {
+                                    val modes = BlendMode.values()
+                                    selected.blendMode = modes[(modes.indexOf(selected.blendMode) + 1) % modes.size]
+                                    layerRefresh++
+                                    canvasView?.invalidate()
+                                }) { Text(selected.blendMode.name.replace('_', ' ')) }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Opacity", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+                                Slider(
+                                    value = selected.opacity,
+                                    onValueChange = {
+                                        selected.opacity = it
+                                        layerRefresh++
+                                        canvasView?.invalidate()
+                                    },
+                                    valueRange = 0f..1f,
+                                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                                )
+                                Text("${(selected.opacity * 100).toInt()}%", color = Color.White)
+                                TextButton(onClick = {
+                                    canvasView?.moveActiveLayer((canvasView?.activeLayerIndex ?: 0) - 1)
+                                    layerRefresh++
+                                }) { Text("↓") }
+                                TextButton(onClick = {
+                                    canvasView?.moveActiveLayer((canvasView?.activeLayerIndex ?: 0) + 1)
+                                    layerRefresh++
+                                }) { Text("↑") }
                             }
                         }
                     }
