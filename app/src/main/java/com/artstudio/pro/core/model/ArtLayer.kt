@@ -29,7 +29,8 @@ data class ArtLayer(
     var contrast: Float = 1f,
     var saturation: Float = 1f,
     var blendMode: BlendMode = BlendMode.NORMAL,
-    val vectorPaths: MutableList<VectorPath> = mutableListOf()
+    val vectorPaths: MutableList<VectorPath> = mutableListOf(),
+    var maskEnabled: Boolean = true
 ) {
     fun applyColorAdjustments(paint: Paint) {
         if (brightness == 0f && contrast == 1f && saturation == 1f) {
@@ -53,7 +54,6 @@ data class ArtLayer(
     val canvas: Canvas = Canvas(bitmap)
     var maskBitmap: Bitmap? = null
         private set
-    var maskEnabled: Boolean = true
 
     fun createMask(fillWhite: Boolean = true): Bitmap {
         maskBitmap?.takeUnless { it.isRecycled }?.recycle()
