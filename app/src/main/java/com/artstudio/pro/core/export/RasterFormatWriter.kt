@@ -25,9 +25,9 @@ object RasterFormatWriter {
         val pixelCount=width.toLong()*height
         val channelLength=2L+pixelCount
         val recordBytes=ordered.sumOf { layer ->
-            val name=layer.name.take(200).toByteArray(Charsets.UTF_8)
+            val name=layer.name.toByteArray(Charsets.UTF_8).take(255).toByteArray()
             val padded=((name.size+1+3)/4)*4
-            62L+padded
+            66L+padded
         }
         val layerInfoLength=2L+recordBytes+ordered.size*4L*channelLength
         val layerMaskLength=4L+layerInfoLength+4L
@@ -50,9 +50,9 @@ object RasterFormatWriter {
             out.writeByte(if(layer.isClippedToBelow)1 else 0)
             out.writeByte(if(isVisible(layer))0 else 2)
             out.writeByte(0)
-            val name=layer.name.take(200).toByteArray(Charsets.UTF_8)
+            val name=layer.name.toByteArray(Charsets.UTF_8).take(255).toByteArray()
             val padded=((name.size+1+3)/4)*4
-            val extraLength=4+padded
+            val extraLength=8+padded
             out.writeInt(extraLength)
             out.writeInt(0)
             out.writeInt(0)
@@ -102,7 +102,7 @@ object RasterFormatWriter {
         com.artstudio.pro.core.model.BlendMode.COLOR_BURN -> "idiv"
         com.artstudio.pro.core.model.BlendMode.COLOR_DODGE -> "div "
         com.artstudio.pro.core.model.BlendMode.DIFFERENCE -> "diff"
-        com.artstudio.pro.core.model.BlendMode.EXCLUSION -> "smud"
+        com.artstudio.pro.core.model.BlendMode.EXCLUSION -> "excl"
         else -> "norm"
     }
 
