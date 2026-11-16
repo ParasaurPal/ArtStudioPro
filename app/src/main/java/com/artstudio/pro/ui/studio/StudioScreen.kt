@@ -345,7 +345,7 @@ fun StudioScreen() {
             try {
                 val paths = view.layers.filter { layer ->
                     layer.isVisible && (layer.groupId?.let { id -> view.layerGroups.firstOrNull { it.id == id }?.isVisible } ?: true)
-                }.flatMap { it.vectorPaths }
+                }.flatMap { layer -> layer.vectorPaths.map { it.copy(opacity = (it.opacity * layer.opacity).coerceIn(0f,1f)) } }
                 val svg = SvgExporter.embedRaster(bitmap, VectorRenderer.toSvgElements(paths))
                 context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(svg) }
                     ?: error("Unable to open the selected file.")
