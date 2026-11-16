@@ -34,7 +34,7 @@ import kotlin.math.min
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
 enum class PerspectiveMode { OFF, ONE_POINT, TWO_POINT, THREE_POINT }
-enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT }
+enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT, FILL }
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
@@ -380,7 +380,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 }
                 target.drawText(textToolContent, shapeStartX, shapeStartY, textPaint)
             }
-            DrawingTool.BRUSH, DrawingTool.VECTOR_EDIT -> Unit
+            DrawingTool.BRUSH, DrawingTool.VECTOR_EDIT, DrawingTool.FILL -> Unit
         }
     }
 
@@ -871,6 +871,61 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         ))
     }
 
+    fun floodFillAt(x: Float, y: Float, color: Int, tolerance: Int = 24): Boolean {
+        val width = documentWidth
+        val height = documentHeight
+        val count = width.toLong() * height
+        if (count > 4_000_000L) return false
+        val pixels = IntArray(count.toInt())
+        activeLayer.bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        val sx = x.toInt().coerceIn(0, width - 1)
+        val sy = y.toInt().coerceIn(0, height - 1)
+        val seed = pixels[sy * width + sx]
+        if (seed == color) return true
+        val threshold = tolerance.coerceIn(0, 255) * tolerance.coerceIn(0, 255) * 3
+        fun matches(pixel: Int): Boolean {
+            if (Color.alpha(pixel) == 0 && Color.alpha(seed) == 0) return true
+            val dr = Color.red(pixel) - Color.red(seed)
+            val dg = Color.green(pixel) - Color.green(seed)
+            val db = Color.blue(pixel) - Color.blue(seed)
+            return dr * dr + dg * dg + db * db <= threshold
+        }
+        val visited = BooleanArray(count.toInt())
+        val queue = IntArray(count.toInt())
+        var head = 0
+        var tail = 0
+        val start = sy * width + sx
+        queue[tail++] = start
+        visited[start] = true
+        var left = sx; var right = sx; var top = sy; var bottom = sy
+        while (head < tail) {
+            val index = queue[head++]
+            val px = index % width; val py = index / width
+            if (!matches(pixels[index])) continue
+            left = minOf(left, px); right = maxOf(right, px)
+            top = minOf(top, py); bottom = maxOf(bottom, py)
+            if (px > 0) { val n=index-1; if(!visited[n]&&matches(pixels[n])){visited[n]=true;queue[tail++]=n} }
+            if (px < width-1) { val n=index+1; if(!visited[n]&&matches(pixels[n])){visited[n]=true;queue[tail++]=n} }
+            if (py > 0) { val n=index-width; if(!visited[n]&&matches(pixels[n])){visited[n]=true;queue[tail++]=n} }
+            if (py < height-1) { val n=index+width; if(!visited[n]&&matches(pixels[n])){visited[n]=true;queue[tail++]=n} }
+        }
+        if (tail == 0) return true
+        val bounds = RectF(left.toFloat(), top.toFloat(), (right+1).toFloat(), (bottom+1).toFloat())
+        val before = captureTiles(activeLayer, bounds)
+        val replacement = if (activeLayer.isAlphaLocked) Color.argb(Color.alpha(seed),Color.red(color),Color.green(color),Color.blue(color)) else color
+        for(i in 0 until tail) {
+            val index=queue[i]
+            if(matches(pixels[index])) pixels[index]=replacement
+        }
+        activeLayer.bitmap.setPixels(pixels,0,width,0,0,width,height)
+        val after = captureTiles(activeLayer,bounds)
+        redoHistory.forEach(::releaseChange);redoHistory.clear()
+        undoHistory.addLast(StrokeChange(activeLayer.id,before,after))
+        while(undoHistory.size>maxUndoEntries)releaseChange(undoHistory.removeFirst())
+        invalidate()
+        return true
+    }
+
     fun addVectorPath(path: VectorPath) {
         activeLayer.vectorPaths.add(path)
         invalidate()
@@ -1267,6 +1322,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             } else if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 isNavigating = false
             }
+            return true
+        }
+        if (drawingTool == DrawingTool.FILL && event.actionMasked == MotionEvent.ACTION_DOWN) {
+            if (!viewportRect.contains(event.x, event.y)) return false
+            val point = documentPoint(event)
+            floodFillAt(point.x, point.y, strokeEngine?.activeColor ?: Color.BLACK)
+            performClick()
             return true
         }
         if (drawingTool == DrawingTool.VECTOR_EDIT) {
