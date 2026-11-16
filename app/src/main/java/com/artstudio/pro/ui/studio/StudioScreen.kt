@@ -126,6 +126,7 @@ fun StudioScreen() {
     var poseJoint by remember { mutableStateOf("leftElbow") }
     var poseOffsetX by remember { mutableFloatStateOf(0f) }
     var poseOffsetY by remember { mutableFloatStateOf(0f) }
+    var poseZoom by remember { mutableFloatStateOf(1f) }
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
@@ -1384,6 +1385,17 @@ fun StudioScreen() {
                         poseReferenceView?.model?.setJointOffset(poseJoint, poseOffsetX, poseOffsetY)
                         poseReferenceView?.invalidate()
                     }, valueRange = -1f..1f)
+                    Text("Camera zoom · ${(poseZoom * 100).toInt()}%")
+                    Slider(value = poseZoom, onValueChange = {
+                        poseZoom = it
+                        poseReferenceView?.model?.zoom = it
+                        poseReferenceView?.invalidate()
+                    }, valueRange = .35f..3f)
+                    TextButton(onClick = {
+                        poseReferenceView?.model?.clearJointOffsets()
+                        poseOffsetX = 0f; poseOffsetY = 0f
+                        poseReferenceView?.invalidate()
+                    }) { Text("Reset joint offsets") }
                     Text("Drag the mannequin to rotate the camera. Pose references are a separate guide and do not alter your artwork.", style = MaterialTheme.typography.bodySmall)
                 }
             },
