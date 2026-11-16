@@ -392,7 +392,6 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     fun maskActiveLayerToSelection() {
         val rect = selectionRect ?: return
         val target = activeLayer
-        val before = captureTiles(target, rect)
         val mask = target.ensureMask()
         val before = captureTiles(target, rect, mask)
         val selectionMask = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
