@@ -2,6 +2,7 @@ package com.artstudio.pro.core.model
 
 import android.graphics.*
 import java.util.UUID
+import com.artstudio.pro.core.vector.VectorPath
 
 enum class BlendMode(val porterDuffMode: PorterDuff.Mode?) {
     NORMAL(null),
@@ -27,7 +28,8 @@ data class ArtLayer(
     var brightness: Float = 0f,
     var contrast: Float = 1f,
     var saturation: Float = 1f,
-    var blendMode: BlendMode = BlendMode.NORMAL
+    var blendMode: BlendMode = BlendMode.NORMAL,
+    val vectorPaths: MutableList<VectorPath> = mutableListOf()
 ) {
     fun applyColorAdjustments(paint: Paint) {
         if (brightness == 0f && contrast == 1f && saturation == 1f) {
