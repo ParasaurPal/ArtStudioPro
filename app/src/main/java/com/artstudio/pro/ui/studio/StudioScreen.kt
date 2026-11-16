@@ -1065,6 +1065,24 @@ fun StudioScreen() {
                             }
                         }
                     }
+                    Text("Harmony", style = MaterialTheme.typography.labelMedium)
+                    val harmonyHsv = FloatArray(3).also { AColor.colorToHSV(activeColor, it) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        listOf(-30f, 0f, 30f, 180f, 120f, 240f).forEach { shift ->
+                            val adjusted = harmonyHsv.copyOf()
+                            adjusted[0] = (adjusted[0] + shift + 360f) % 360f
+                            val harmonyColor = AColor.HSVToColor(adjusted)
+                            Surface(
+                                color = Color(harmonyColor),
+                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier.size(38.dp).clickable {
+                                    activeColor = harmonyColor
+                                    showColorPicker = false
+                                },
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
+                            ) {}
+                        }
+                    }
                 }
             },
             confirmButton = {
