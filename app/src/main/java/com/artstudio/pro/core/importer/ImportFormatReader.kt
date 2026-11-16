@@ -108,6 +108,16 @@ object ImportFormatReader {
                 fun attr(name:String,default:Float=0f)=parser.getAttributeValue(null,name)?.replace("px","")?.toFloatOrNull()?:default
                 fun color(name:String,default:Int)=parser.getAttributeValue(null,name)?.let{runCatching{Color.parseColor(it)}.getOrDefault(default)}?:default
                 if(tag=="svg"){width=attr("width",1024f).coerceIn(1f,4096f);height=attr("height",1024f).coerceIn(1f,4096f)}
+                else if(tag=="image") {
+                    val x=attr("x");val y=attr("y");val w=attr("width",width);val h=attr("height",height)
+                    val href=parser.getAttributeValue("http://www.w3.org/1999/xlink","href")
+                        ?: parser.getAttributeValue(null,"href")
+                    val encoded=href?.substringAfter("base64,", "")?.takeIf{it.isNotBlank()}
+                    val embedded=encoded?.let{runCatching{BitmapFactory.decodeByteArray(android.util.Base64.decode(it,android.util.Base64.DEFAULT),0,android.util.Base64.decode(it,android.util.Base64.DEFAULT).size)}.getOrNull()}
+                    if(embedded!=null) elements += { canvas ->
+                        canvas.drawBitmap(embedded,null,RectF(x,y,x+w,y+h),Paint(Paint.FILTER_BITMAP_FLAG))
+                    }
+                }
                 else if(tag=="rect"||tag=="circle"||tag=="ellipse"||tag=="line"){
                     val x=attr("x");val y=attr("y");val w=attr("width");val h=attr("height")
                     val cx=attr("cx");val cy=attr("cy");val rx=attr("rx",attr("r"));val ry=attr("ry",attr("r"))
