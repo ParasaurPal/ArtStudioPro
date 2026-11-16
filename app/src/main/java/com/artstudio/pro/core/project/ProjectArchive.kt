@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.AnimationFrame
+import com.artstudio.pro.core.model.LayerGroup
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.paper.PaperKind
 import com.artstudio.pro.core.color.ColorProfile
@@ -40,7 +41,8 @@ object ProjectArchive {
         val dpi: Int = 300,
         val frames: List<FrameManifest> = emptyList(),
         val currentFrameIndex: Int = 0,
-        val colorProfile: String = ColorProfile.SRGB.name
+        val colorProfile: String = ColorProfile.SRGB.name,
+        val groups: List<LayerGroup> = emptyList()
     )
 
     @Serializable
@@ -75,7 +77,8 @@ object ProjectArchive {
         val dpi: Int = 300,
         val frames: List<AnimationFrame> = emptyList(),
         val currentFrameIndex: Int = 0,
-        val colorProfile: ColorProfile = ColorProfile.SRGB
+        val colorProfile: ColorProfile = ColorProfile.SRGB,
+        val groups: List<LayerGroup> = emptyList()
     )
 
     private fun layerManifest(layer: ArtLayer, file: String) = LayerManifest(
@@ -119,7 +122,8 @@ object ProjectArchive {
         dpi: Int = 300,
         frames: List<AnimationFrame> = emptyList(),
         currentFrameIndex: Int = 0,
-        colorProfile: ColorProfile = ColorProfile.SRGB
+        colorProfile: ColorProfile = ColorProfile.SRGB,
+        groups: List<LayerGroup> = emptyList()
     ) {
         require(width > 0 && height > 0) { "Project dimensions must be positive." }
         require(layers.isNotEmpty()) { "A project must contain at least one layer." }
@@ -154,7 +158,8 @@ object ProjectArchive {
             layers = frameManifests[selectedIndex].layers,
             frames = frameManifests,
             currentFrameIndex = selectedIndex,
-            colorProfile = colorProfile.name
+            colorProfile = colorProfile.name,
+            groups = groups
         )
 
         ZipOutputStream(output.buffered()).use { zip ->
@@ -265,7 +270,8 @@ object ProjectArchive {
             dpi = manifest.dpi.coerceIn(36, 2400),
             frames = loadedFrames,
             currentFrameIndex = selectedIndex,
-            colorProfile = runCatching { ColorProfile.valueOf(manifest.colorProfile) }.getOrDefault(ColorProfile.SRGB)
+            colorProfile = runCatching { ColorProfile.valueOf(manifest.colorProfile) }.getOrDefault(ColorProfile.SRGB),
+            groups = manifest.groups
         )
     }
 }
