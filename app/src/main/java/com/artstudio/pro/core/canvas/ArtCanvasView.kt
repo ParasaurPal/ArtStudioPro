@@ -26,6 +26,7 @@ import com.artstudio.pro.core.vector.VectorNode
 import com.artstudio.pro.core.vector.VectorRenderer
 import com.artstudio.pro.core.filters.FilterEngine
 import com.artstudio.pro.core.filters.ImageFilter
+import com.artstudio.pro.core.comic.ComicLayoutEngine
 import com.artstudio.pro.core.paper.PaperKind
 import com.artstudio.pro.core.paper.PaperTexture
 import kotlin.math.min
@@ -642,6 +643,26 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         activeLayerIndex++
         invalidate()
         return true
+    }
+
+    fun addComicGrid(rows: Int = 2, columns: Int = 2) {
+        val page = ComicLayoutEngine.grid(documentWidth, documentHeight, rows, columns, minOf(documentWidth, documentHeight) * .018f)
+        page.panels.forEach { panel ->
+            val b = panel.bounds
+            if (b.size >= 4) {
+                val nodes = listOf(
+                    VectorNode(b[0], b[1]), VectorNode(b[2], b[1]),
+                    VectorNode(b[2], b[3]), VectorNode(b[0], b[3])
+                )
+                activeLayer.vectorPaths.add(VectorPath(
+                    id = java.util.UUID.randomUUID().toString(),
+                    nodes = nodes, closed = true,
+                    strokeColor = Color.BLACK, strokeWidth = minOf(documentWidth, documentHeight) * .003f,
+                    name = "Comic panel ${panel.order + 1}"
+                ))
+            }
+        }
+        invalidate()
     }
 
     fun addVectorRectangle() {
