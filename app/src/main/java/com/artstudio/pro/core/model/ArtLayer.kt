@@ -24,8 +24,29 @@ data class ArtLayer(
     var isVisible: Boolean = true,
     var isAlphaLocked: Boolean = false,
     var isClippedToBelow: Boolean = false,
+    var brightness: Float = 0f,
+    var contrast: Float = 1f,
+    var saturation: Float = 1f,
     var blendMode: BlendMode = BlendMode.NORMAL
 ) {
+    fun applyColorAdjustments(paint: Paint) {
+        if (brightness == 0f && contrast == 1f && saturation == 1f) {
+            paint.colorFilter = null
+            return
+        }
+        val matrix = ColorMatrix().apply { setSaturation(saturation.coerceIn(0f, 2f)) }
+        val c = contrast.coerceIn(0f, 2f)
+        val b = brightness.coerceIn(-1f, 1f) * 255f
+        val tone = ColorMatrix(floatArrayOf(
+            c, 0f, 0f, 0f, b,
+            0f, c, 0f, 0f, b,
+            0f, 0f, c, 0f, b,
+            0f, 0f, 0f, 1f, 0f
+        ))
+        matrix.postConcat(tone)
+        paint.colorFilter = ColorMatrixColorFilter(matrix)
+    }
+
     val bitmap: Bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas: Canvas = Canvas(bitmap)
     fun clear() = canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
