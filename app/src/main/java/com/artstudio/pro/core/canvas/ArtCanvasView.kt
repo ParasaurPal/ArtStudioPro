@@ -256,6 +256,16 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    fun replaceLayers(newLayers: List<ArtLayer>) {
+        require(newLayers.isNotEmpty())
+        require(newLayers.all { it.width == documentWidth && it.height == documentHeight })
+        layers.clear()
+        layers.addAll(newLayers)
+        activeLayerIndex = layers.lastIndex
+        clearHistory()
+        invalidate()
+    }
+
     fun mergeVisibleLayers() {
         val merged = ArtLayer(name = "Merged", width = documentWidth, height = documentHeight)
         val mergeCanvas = merged.canvas
