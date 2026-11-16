@@ -62,6 +62,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     val activeLayer: ArtLayer get() = layers[activeLayerIndex.coerceIn(0, layers.lastIndex)]
     private val maxLayerCount: Int = (64_000_000L / (documentWidth.toLong() * documentHeight.toLong()).coerceAtLeast(1L)).coerceIn(2L, 32L).toInt()
     var strokeEngine: StrokeEngine? = null
+    var isEditingLayerMask: Boolean = false
+        private set
     var paperKind: PaperKind = PaperKind.SMOOTH
         private set
     var paperStrength: Float = 1f
@@ -400,6 +402,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             })
         }
         selectionMask.recycle()
+        invalidate()
+    }
+
+    fun toggleActiveLayerMaskEditing() {
+        if (activeLayer.maskBitmap == null) activeLayer.ensureMask()
+        isEditingLayerMask = !isEditingLayerMask
         invalidate()
     }
 
@@ -990,7 +998,23 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         mirrorSaveCounts.clear()
         val targetLayer = activeLayer
         val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds) else emptyList()
-        if (targetLayer.isAlphaLocked) {
+        if (isEditingLayerMask) {
+            val mask = targetLayer.ensureMask()
+            val maskCanvas = Canvas(mask)
+            val luminance = (android.graphics.Color.red(strokeEngine?.activeColor ?: Color.BLACK) * 0.2126f +
+                android.graphics.Color.green(strokeEngine?.activeColor ?: Color.BLACK) * 0.7152f +
+                android.graphics.Color.blue(strokeEngine?.activeColor ?: Color.BLACK) * 0.0722f)
+            if (strokeEngine?.eraserMode == true || luminance < 128f) {
+                maskCanvas.drawBitmap(activeBitmap, 0f, 0f, Paint().apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+                })
+            } else {
+                maskCanvas.drawBitmap(activeBitmap, 0f, 0f, Paint().apply {
+                    colorFilter = android.graphics.PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
+                })
+            }
+        } else if (targetLayer.isAlphaLocked) {
             if (strokeEngine?.eraserMode != true) {
                 val alphaLockPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP)
