@@ -4,49 +4,58 @@ import android.graphics.*
 import java.util.UUID
 import com.artstudio.pro.core.vector.VectorPath
 
+private val nativeBlendApi by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    val type = Class.forName("android.graphics.BlendMode")
+    type to android.graphics.Paint::class.java.getMethod("setBlendMode", type)
+}
+
 enum class BlendMode(
     val porterDuffMode: PorterDuff.Mode?,
-    val nativeMode: android.graphics.BlendMode?
+    val nativeModeName: String?
 ) {
     NORMAL(null, null),
-    MULTIPLY(PorterDuff.Mode.MULTIPLY, android.graphics.BlendMode.MULTIPLY),
-    SCREEN(PorterDuff.Mode.SCREEN, android.graphics.BlendMode.SCREEN),
-    OVERLAY(PorterDuff.Mode.OVERLAY, android.graphics.BlendMode.OVERLAY),
-    DARKEN(PorterDuff.Mode.DARKEN, android.graphics.BlendMode.DARKEN),
-    LIGHTEN(PorterDuff.Mode.LIGHTEN, android.graphics.BlendMode.LIGHTEN),
-    ADD(PorterDuff.Mode.ADD, android.graphics.BlendMode.PLUS),
-    XOR(PorterDuff.Mode.XOR, android.graphics.BlendMode.XOR),
-    SRC_ATOP(PorterDuff.Mode.SRC_ATOP, android.graphics.BlendMode.SRC_ATOP),
-    COLOR_BURN(null, android.graphics.BlendMode.COLOR_BURN),
-    COLOR_DODGE(null, android.graphics.BlendMode.COLOR_DODGE),
-    LINEAR_BURN(PorterDuff.Mode.MULTIPLY, android.graphics.BlendMode.MULTIPLY),
-    LINEAR_DODGE(PorterDuff.Mode.ADD, android.graphics.BlendMode.PLUS),
-    DARKER_COLOR(PorterDuff.Mode.DARKEN, android.graphics.BlendMode.DARKEN),
-    LIGHTER_COLOR(PorterDuff.Mode.LIGHTEN, android.graphics.BlendMode.LIGHTEN),
-    SOFT_LIGHT(null, android.graphics.BlendMode.SOFT_LIGHT),
-    HARD_LIGHT(null, android.graphics.BlendMode.HARD_LIGHT),
-    VIVID_LIGHT(null, android.graphics.BlendMode.HARD_LIGHT),
-    LINEAR_LIGHT(null, android.graphics.BlendMode.HARD_LIGHT),
-    PIN_LIGHT(null, android.graphics.BlendMode.LIGHTEN),
-    HARD_MIX(null, android.graphics.BlendMode.DIFFERENCE),
-    DIFFERENCE(null, android.graphics.BlendMode.DIFFERENCE),
-    EXCLUSION(null, android.graphics.BlendMode.EXCLUSION),
-    SUBTRACT(null, android.graphics.BlendMode.DIFFERENCE),
-    DIVIDE(null, android.graphics.BlendMode.SCREEN),
-    HUE(null, android.graphics.BlendMode.HUE),
-    SATURATION(null, android.graphics.BlendMode.SATURATION),
-    COLOR(null, android.graphics.BlendMode.COLOR),
-    LUMINOSITY(null, android.graphics.BlendMode.LUMINOSITY),
-    GRAIN_MERGE(null, android.graphics.BlendMode.OVERLAY),
-    GRAIN_EXTRACT(null, android.graphics.BlendMode.SOFT_LIGHT),
-    REFLECT(null, android.graphics.BlendMode.COLOR_DODGE),
-    GLOW(null, android.graphics.BlendMode.COLOR_DODGE),
-    PHOENIX(null, android.graphics.BlendMode.EXCLUSION),
-    NEGATION(null, android.graphics.BlendMode.DIFFERENCE);
+    MULTIPLY(PorterDuff.Mode.MULTIPLY, "MULTIPLY"),
+    SCREEN(PorterDuff.Mode.SCREEN, "SCREEN"),
+    OVERLAY(PorterDuff.Mode.OVERLAY, "OVERLAY"),
+    DARKEN(PorterDuff.Mode.DARKEN, "DARKEN"),
+    LIGHTEN(PorterDuff.Mode.LIGHTEN, "LIGHTEN"),
+    ADD(PorterDuff.Mode.ADD, "PLUS"),
+    XOR(PorterDuff.Mode.XOR, "XOR"),
+    SRC_ATOP(PorterDuff.Mode.SRC_ATOP, "SRC_ATOP"),
+    COLOR_BURN(null, "COLOR_BURN"),
+    COLOR_DODGE(null, "COLOR_DODGE"),
+    LINEAR_BURN(PorterDuff.Mode.MULTIPLY, "MULTIPLY"),
+    LINEAR_DODGE(PorterDuff.Mode.ADD, "PLUS"),
+    DARKER_COLOR(PorterDuff.Mode.DARKEN, "DARKEN"),
+    LIGHTER_COLOR(PorterDuff.Mode.LIGHTEN, "LIGHTEN"),
+    SOFT_LIGHT(null, "SOFT_LIGHT"),
+    HARD_LIGHT(null, "HARD_LIGHT"),
+    VIVID_LIGHT(null, "HARD_LIGHT"),
+    LINEAR_LIGHT(null, "HARD_LIGHT"),
+    PIN_LIGHT(null, "LIGHTEN"),
+    HARD_MIX(null, "DIFFERENCE"),
+    DIFFERENCE(null, "DIFFERENCE"),
+    EXCLUSION(null, "EXCLUSION"),
+    SUBTRACT(null, "DIFFERENCE"),
+    DIVIDE(null, "SCREEN"),
+    HUE(null, "HUE"),
+    SATURATION(null, "SATURATION"),
+    COLOR(null, "COLOR"),
+    LUMINOSITY(null, "LUMINOSITY"),
+    GRAIN_MERGE(null, "OVERLAY"),
+    GRAIN_EXTRACT(null, "SOFT_LIGHT"),
+    REFLECT(null, "COLOR_DODGE"),
+    GLOW(null, "COLOR_DODGE"),
+    PHOENIX(null, "EXCLUSION"),
+    NEGATION(null, "DIFFERENCE");
 
     fun applyTo(paint: Paint) {
-        if (android.os.Build.VERSION.SDK_INT >= 29 && nativeMode != null) {
-            paint.blendMode = nativeMode
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val (type, setter) = nativeBlendApi
+            val mode = nativeModeName?.let { name ->
+                type.enumConstants.firstOrNull { (it as Enum<*>).name == name }
+            }
+            setter.invoke(paint, mode)
             paint.xfermode = null
         } else {
             paint.xfermode = porterDuffMode?.let { PorterDuffXfermode(it) }
