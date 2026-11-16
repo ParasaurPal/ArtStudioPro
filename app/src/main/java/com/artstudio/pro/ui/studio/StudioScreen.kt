@@ -674,6 +674,18 @@ fun StudioScreen() {
                                 modifier = Modifier.width(120.dp)
                             )
                         }
+                        if (canvasView?.drawingTool == DrawingTool.FILL) {
+                            Text("Fill tolerance")
+                            Slider(
+                                value = fillTolerance,
+                                onValueChange = {
+                                    fillTolerance = it
+                                    canvasView?.setFillTolerance(it.toInt())
+                                },
+                                valueRange = 0f..255f,
+                                modifier = Modifier.width(120.dp)
+                            )
+                        }
                         if (canvasView?.hasSelection == true) {
                             TextButton(onClick = { canvasView?.maskActiveLayerToSelection(); layerRefresh++ }) { Text("Mask layer") }
                             TextButton(onClick = { canvasView?.clearSelection(); layerRefresh++ }) { Text("Clear selection") }
