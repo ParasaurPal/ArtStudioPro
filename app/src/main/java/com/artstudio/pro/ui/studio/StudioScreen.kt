@@ -54,6 +54,7 @@ fun StudioScreen() {
     var showMediumPicker by remember { mutableStateOf(false) }
     var brushMedium by remember { mutableStateOf(BrushMedium.INK_PEN) }
     var dynamicsSource by remember { mutableStateOf(DynamicsSource.PRESSURE) }
+    var opacityDynamicsSource by remember { mutableStateOf(DynamicsSource.PRESSURE) }
     var tipMask by remember { mutableStateOf<Bitmap?>(null) }
     var paperKind by remember { mutableStateOf(PaperKind.SMOOTH) }
     var paperStrength by remember { mutableFloatStateOf(1f) }
@@ -225,6 +226,9 @@ fun StudioScreen() {
                             dynamicsSource = DynamicsSource.values()[(DynamicsSource.values().indexOf(dynamicsSource) + 1) % DynamicsSource.values().size]
                         }) { Text("Size: ${dynamicsSource.name.lowercase()}") }
                         TextButton(onClick = {
+                            opacityDynamicsSource = DynamicsSource.values()[(DynamicsSource.values().indexOf(opacityDynamicsSource) + 1) % DynamicsSource.values().size]
+                        }) { Text("Opacity: ${opacityDynamicsSource.name.lowercase()}") }
+                        TextButton(onClick = {
                             canvasView?.addLayer()
                             layerRefresh++
                         }) { Text("New layer") }
@@ -295,6 +299,7 @@ fun StudioScreen() {
                     update = { view ->
                         brush.baseSize = brushSize
                         brush.sizeSource = dynamicsSource
+                        brush.opacitySource = opacityDynamicsSource
                         brush.tipMask = tipMask
                         view.strokeEngine?.brush = brush
                         view.strokeEngine?.activeColor = activeColor
