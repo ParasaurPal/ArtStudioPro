@@ -29,6 +29,7 @@ import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.brush.model.DynamicsSource
 import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.canvas.SymmetryMode
+import com.artstudio.pro.core.canvas.SelectionMode
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
@@ -259,6 +260,17 @@ fun StudioScreen() {
                                 layerRefresh++
                             }
                         }) { Text("Grid ${canvasView?.gridSpacing ?: 64}px") }
+                        TextButton(onClick = {
+                            val modes = SelectionMode.values()
+                            val view = canvasView
+                            if (view != null) {
+                                view.setSelectionMode(modes[(modes.indexOf(view.selectionMode) + 1) % modes.size])
+                                layerRefresh++
+                            }
+                        }) { Text("Select: ${canvasView?.selectionMode?.name?.lowercase() ?: "none"}") }
+                        if (canvasView?.hasSelection == true) {
+                            TextButton(onClick = { canvasView?.clearSelection(); layerRefresh++ }) { Text("Clear selection") }
+                        }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = { importBrushTip.launch(arrayOf("image/*")) }) { Text(if (tipMask == null) "Import tip" else "Change tip") }
                         if (tipMask != null) {
