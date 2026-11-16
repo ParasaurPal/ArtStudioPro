@@ -389,6 +389,23 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    fun createActiveLayerMask() {
+        activeLayer.ensureMask()
+        invalidate()
+    }
+
+    fun toggleActiveLayerMask() {
+        if (activeLayer.maskBitmap != null) {
+            activeLayer.maskEnabled = !activeLayer.maskEnabled
+            invalidate()
+        }
+    }
+
+    fun removeActiveLayerMask() {
+        activeLayer.removeMask()
+        invalidate()
+    }
+
     fun clearSelection() {
         selectionRect = null
         selectionIsEllipse = false
