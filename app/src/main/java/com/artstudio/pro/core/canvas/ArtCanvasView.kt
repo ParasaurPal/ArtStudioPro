@@ -962,6 +962,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun addComicGrid(rows: Int = 2, columns: Int = 2) {
+        if (activeLayer.isLocked) return
         val page = ComicLayoutEngine.grid(documentWidth, documentHeight, rows, columns, minOf(documentWidth, documentHeight) * .018f)
         page.panels.forEach { panel ->
             val b = panel.bounds
