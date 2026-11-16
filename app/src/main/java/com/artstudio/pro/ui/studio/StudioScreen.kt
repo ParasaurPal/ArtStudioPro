@@ -42,6 +42,7 @@ import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
 import com.artstudio.pro.core.paper.PaperKind
+import com.artstudio.pro.core.paper.PaperTexture
 import com.artstudio.pro.core.paint.PigmentMixer
 import com.artstudio.pro.core.filters.ImageFilter
 import com.artstudio.pro.core.color.ColorProfile
@@ -297,15 +298,18 @@ fun StudioScreen() {
     ) { uri ->
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
-            val bitmap = renderProfiledComposite(AColor.WHITE)
+            val bitmap = renderProfiledComposite()
+            val paperLayer = if (view.paperKind != PaperKind.TRANSPARENT) ArtLayer(name = "Paper", width = documentWidth, height = documentHeight).also {
+                PaperTexture.draw(android.graphics.Canvas(it.bitmap), android.graphics.RectF(0f,0f,documentWidth.toFloat(),documentHeight.toFloat()), view.paperKind, view.paperStrength)
+            } else null
             try {
                 val visible: (ArtLayer) -> Boolean = { layer ->
                     layer.isVisible && (layer.groupId?.let { id -> view.layerGroups.firstOrNull { it.id == id }?.isVisible } ?: true)
                 }
                 context.contentResolver.openOutputStream(uri)?.use {
-                    RasterFormatWriter.writeLayeredPsd(view.layers,bitmap,it,documentColorProfile,visible)
+                    RasterFormatWriter.writeLayeredPsd(listOfNotNull(paperLayer) + view.layers,bitmap,it,documentColorProfile,visible)
                 } ?: error("Unable to open the selected file.")
-            } finally { bitmap.recycle() }
+            } finally { bitmap.recycle(); paperLayer?.bitmap?.recycle() }
         }.onSuccess { Toast.makeText(context,"Layered PSD exported",Toast.LENGTH_SHORT).show() }
             .onFailure { Toast.makeText(context,"PSD export failed: ${it.message}",Toast.LENGTH_LONG).show() }
     }
