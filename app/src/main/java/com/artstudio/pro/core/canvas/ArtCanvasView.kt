@@ -1027,6 +1027,79 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     fun renderComposite(backgroundColor: Int? = null): Bitmap =
         renderLayersComposite(layers, backgroundColor)
 
+    fun forEachHighPrecisionTile(
+        tileSize: Int = 512,
+        consumer: (left: Int, top: Int, tile: Bitmap) -> Unit
+    ) {
+        require(tileSize in 64..2048)
+        var top = 0
+        while (top < documentHeight) {
+            var left = 0
+            val tileHeight = minOf(tileSize, documentHeight - top)
+            while (left < documentWidth) {
+                val tileWidth = minOf(tileSize, documentWidth - left)
+                val bounds = Rect(left, top, left + tileWidth, top + tileHeight)
+                val tile = Bitmap.createBitmap(tileWidth, tileHeight, Bitmap.Config.RGBA_F16)
+                val tileCanvas = Canvas(tile)
+                tileCanvas.save()
+                tileCanvas.translate(-left.toFloat(), -top.toFloat())
+                PaperTexture.draw(tileCanvas, documentRect, paperKind, paperStrength)
+                var clipBaseTile: Bitmap? = null
+                layers.filter { it.isVisible }.forEach { layer ->
+                    val layerTile = Bitmap.createBitmap(tileWidth, tileHeight, Bitmap.Config.ARGB_8888)
+                    val layerCanvas = Canvas(layerTile)
+                    layerCanvas.save()
+                    layerCanvas.translate(-left.toFloat(), -top.toFloat())
+                    layerCanvas.drawBitmap(layer.bitmap, bounds, bounds, Paint(Paint.FILTER_BITMAP_FLAG))
+                    VectorRenderer.draw(layerCanvas, layer.vectorPaths)
+                    layer.maskBitmap?.takeIf { layer.maskEnabled }?.let { mask ->
+                        layerCanvas.drawBitmap(mask, bounds, bounds, Paint().apply {
+                            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                        })
+                    }
+                    if (layer.isClippedToBelow && clipBaseTile != null) {
+                        layerCanvas.drawBitmap(
+                            clipBaseTile!!,
+                            Rect(0, 0, tileWidth, tileHeight),
+                            bounds,
+                            Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
+                        )
+                    }
+                    layerCanvas.restore()
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                        alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
+                        layer.blendMode.applyTo(this)
+                    }
+                    layer.applyColorAdjustments(paint)
+                    tileCanvas.drawBitmap(layerTile, Rect(0, 0, tileWidth, tileHeight), bounds, paint)
+                    paint.colorFilter = null
+                    if (!layer.isClippedToBelow) {
+                        clipBaseTile?.recycle()
+                        clipBaseTile = layerTile.copy(Bitmap.Config.ARGB_8888, false)
+                    }
+                    layerTile.recycle()
+                }
+                clipBaseTile?.recycle()
+                tileCanvas.restore()
+                try { consumer(left, top, tile) } finally { tile.recycle() }
+                left += tileWidth
+            }
+            top += tileHeight
+        }
+    }
+
+    fun renderHighPrecisionComposite(): Bitmap {
+        require(documentWidth.toLong() * documentHeight.toLong() <= 12_000_000L) {
+            "A full-size 16-bit float composite exceeds the mobile memory budget. Use tiled export instead."
+        }
+        val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.RGBA_F16)
+        val outputCanvas = Canvas(output)
+        forEachHighPrecisionTile { left, top, tile ->
+            outputCanvas.drawBitmap(tile, left.toFloat(), top.toFloat(), Paint(Paint.FILTER_BITMAP_FLAG))
+        }
+        return output
+    }
+
     fun renderFrameComposite(index: Int, backgroundColor: Int? = null): Bitmap {
         val frame = animationFrames.getOrNull(index) ?: error("Animation frame does not exist.")
         return renderLayersComposite(frame.layers, backgroundColor)
