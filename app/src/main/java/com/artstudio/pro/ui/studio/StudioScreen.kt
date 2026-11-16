@@ -113,6 +113,18 @@ fun StudioScreen() {
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
     val brush = remember(brushMedium) { BrushDefinition("medium-${brushMedium.name.lowercase()}", brushMedium.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, brushMedium) }
 
+    fun renderProfiledComposite(backgroundColor: Int? = null): Bitmap {
+        val raw = (canvasView ?: error("The canvas is not ready.")).renderComposite(backgroundColor)
+        return try { ColorManagement.convertBitmap(raw, ColorProfile.SRGB, documentColorProfile) }
+        finally { raw.recycle() }
+    }
+
+    fun renderProfiledFrame(index: Int, backgroundColor: Int? = null): Bitmap {
+        val raw = (canvasView ?: error("The canvas is not ready.")).renderFrameComposite(index, backgroundColor)
+        return try { ColorManagement.convertBitmap(raw, ColorProfile.SRGB, documentColorProfile) }
+        finally { raw.recycle() }
+    }
+
     val saveProject = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/x-artstudio-project")
     ) { uri ->
@@ -132,7 +144,7 @@ fun StudioScreen() {
         ActivityResultContracts.CreateDocument("image/png")
     ) { uri ->
         if (uri != null) runCatching {
-            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite()
+            val bitmap = renderProfiledComposite()
             try {
                 context.contentResolver.openOutputStream(uri)?.use { output ->
                     check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)) {
@@ -153,7 +165,7 @@ fun StudioScreen() {
         ActivityResultContracts.CreateDocument("image/jpeg")
     ) { uri ->
         if (uri != null) runCatching {
-            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite(AColor.WHITE)
+            val bitmap = renderProfiledComposite(AColor.WHITE)
             try {
                 context.contentResolver.openOutputStream(uri)?.use { output ->
                     check(bitmap.compress(Bitmap.CompressFormat.JPEG, 92, output)) { "JPEG encoding failed." }
@@ -182,7 +194,7 @@ fun StudioScreen() {
             try {
                 val sheetCanvas = android.graphics.Canvas(sheet)
                 repeat(view.frameCount) { frameIndex ->
-                    val frame = view.renderFrameComposite(frameIndex)
+                    val frame = renderProfiledFrame(frameIndex)
                     try {
                         val left = (frameIndex % columns) * frameWidth
                         val top = (frameIndex / columns) * frameHeight
@@ -245,7 +257,7 @@ fun StudioScreen() {
             val pdf = android.graphics.pdf.PdfDocument()
             try {
                 repeat(view.frameCount) { frameIndex ->
-                    val bitmap = view.renderFrameComposite(frameIndex)
+                    val bitmap = renderProfiledFrame(frameIndex)
                     try {
                         val page = pdf.startPage(
                             android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, frameIndex + 1).create()
