@@ -488,6 +488,18 @@ fun StudioScreen() {
                             layerRefresh++
                         }) { Text("Duplicate") }
                         TextButton(onClick = {
+                            canvasView?.createActiveLayerMask()
+                            layerRefresh++
+                        }) { Text("Add mask") }
+                        TextButton(onClick = {
+                            canvasView?.toggleActiveLayerMask()
+                            layerRefresh++
+                        }) { Text(if (canvasView?.activeLayer?.maskEnabled == false) "Mask off" else "Mask on") }
+                        TextButton(onClick = {
+                            canvasView?.removeActiveLayerMask()
+                            layerRefresh++
+                        }) { Text("Remove mask") }
+                        TextButton(onClick = {
                             canvasView?.mergeActiveLayerDown()
                             layerRefresh++
                         }) { Text("Merge down") }
