@@ -105,6 +105,11 @@ fun StudioScreen() {
     var showRenameLayer by remember { mutableStateOf(false) }
     var showTextContentDialog by remember { mutableStateOf(false) }
     var comicTextContent by remember { mutableStateOf("Text") }
+    var comicFontFamily by remember { mutableStateOf("sans-serif") }
+    var comicTextBold by remember { mutableStateOf(false) }
+    var comicTextItalic by remember { mutableStateOf(false) }
+    var comicTextSize by remember { mutableFloatStateOf(48f) }
+    var comicTextOutline by remember { mutableFloatStateOf(0f) }
     var showLayerAdjustments by remember { mutableStateOf(false) }
     var showBlendModePicker by remember { mutableStateOf(false) }
     var showTransformDialog by remember { mutableStateOf(false) }
@@ -1116,17 +1121,38 @@ fun StudioScreen() {
             onDismissRequest = { showTextContentDialog = false },
             title = { Text("Comic lettering") },
             text = {
-                OutlinedTextField(
-                    value = comicTextContent,
-                    onValueChange = { comicTextContent = it.take(240) },
-                    label = { Text("Text to place") },
-                    minLines = 2,
-                    maxLines = 5
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        value = comicTextContent,
+                        onValueChange = { comicTextContent = it.take(240) },
+                        label = { Text("Text to place") },
+                        minLines = 2,
+                        maxLines = 5
+                    )
+                    Text("Typeface")
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("sans-serif","serif","monospace","cursive").forEach { family ->
+                            TextButton(onClick = { comicFontFamily = family }) {
+                                Text(if (comicFontFamily == family) "• $family" else family)
+                            }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = comicTextBold, onCheckedChange = { comicTextBold = it })
+                        Text("Bold")
+                        Checkbox(checked = comicTextItalic, onCheckedChange = { comicTextItalic = it })
+                        Text("Italic")
+                    }
+                    Text("Size · ${comicTextSize.toInt()} px")
+                    Slider(value = comicTextSize, onValueChange = { comicTextSize = it }, valueRange = 8f..256f)
+                    Text("Outline · ${comicTextOutline.toInt()} px")
+                    Slider(value = comicTextOutline, onValueChange = { comicTextOutline = it }, valueRange = 0f..24f)
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
                     canvasView?.setTextToolContent(comicTextContent)
+                    canvasView?.setTextStyle(comicFontFamily, comicTextBold, comicTextItalic, comicTextSize, comicTextOutline)
                     showTextContentDialog = false
                 }) { Text("Use text") }
             },
