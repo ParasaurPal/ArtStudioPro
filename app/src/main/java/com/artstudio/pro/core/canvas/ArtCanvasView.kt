@@ -16,6 +16,8 @@ import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.engine.StrokePoint
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.BlendMode
+import com.artstudio.pro.core.paper.PaperKind
+import com.artstudio.pro.core.paper.PaperTexture
 import kotlin.math.min
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
@@ -27,6 +29,16 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     val activeLayer: ArtLayer get() = layers[activeLayerIndex.coerceIn(0, layers.lastIndex)]
     var strokeEngine: StrokeEngine? = null
+    var paperKind: PaperKind = PaperKind.SMOOTH
+        private set
+    var paperStrength: Float = 1f
+        private set
+
+    fun setPaperTexture(kind: PaperKind, strength: Float = paperStrength) {
+        paperKind = kind
+        paperStrength = strength.coerceIn(0f, 1f)
+        invalidate()
+    }
 
     private val activeBitmap = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
     private val activeCanvas = Canvas(activeBitmap)
@@ -135,7 +147,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         if (!transformReady) updateTransform()
         canvas.drawColor(Color.rgb(34, 32, 38))
         if (!transformReady) return
-        canvas.drawRect(viewportRect, bitmapPaint.apply { color = Color.WHITE; alpha = 255 })
+        PaperTexture.draw(canvas, viewportRect, paperKind, paperStrength)
         val save = canvas.save()
         canvas.clipRect(viewportRect)
         layers.filter { it.isVisible }.forEach { layer ->
@@ -261,7 +273,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     fun renderComposite(backgroundColor: Int? = null): Bitmap {
         val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
         val outputCanvas = Canvas(output)
-        backgroundColor?.let { outputCanvas.drawColor(it) }
+        if (backgroundColor != null) outputCanvas.drawColor(backgroundColor)
+        else PaperTexture.draw(outputCanvas, RectF(0f, 0f, documentWidth.toFloat(), documentHeight.toFloat()), paperKind, paperStrength)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         layers.filter { it.isVisible }.forEach { layer ->
             paint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
