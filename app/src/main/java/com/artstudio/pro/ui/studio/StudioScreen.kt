@@ -829,6 +829,7 @@ fun StudioScreen() {
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             strokeEngine = StrokeEngine(brush, activeColor)
                             setPaperTexture(paperKind, paperStrength)
+                            setSafeMargin((printSafeMarginMm * documentDpi / 25.4f).toInt())
                             pendingFrames?.let { replaceFrames(it, pendingFrameIndex) }
                                 ?: pendingLayers?.let { replaceLayers(it) }
                             canvasView = this
@@ -857,6 +858,7 @@ fun StudioScreen() {
                         view.strokeEngine?.activeColor = activeColor
                         view.strokeEngine?.eraserMode = eraserMode
                         view.setPaperTexture(paperKind, paperStrength)
+                        view.setSafeMargin((printSafeMarginMm * documentDpi / 25.4f).toInt())
                         canvasView = view
                     }
                 )
