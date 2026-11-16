@@ -1155,7 +1155,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             upper.blendMode.applyTo(this)
         }
         upper.applyColorAdjustments(paint)
-        drawLayer(lower.canvas, upper, paint, clipBase = lower.bitmap)
+        val lowerAlpha = createLayerAlphaSource(lower)
+        drawLayer(lower.canvas, upper, paint, clipBase = lowerAlpha)
+        lowerAlpha.recycle()
         paint.colorFilter = null
         lower.opacity = 1f
         layers.removeAt(activeLayerIndex)
@@ -1177,83 +1179,15 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun mergeVisibleLayers() {
+        val mergedBitmap = renderLayersComposite(layers, Color.TRANSPARENT)
         val merged = ArtLayer(name = "Merged", width = documentWidth, height = documentHeight)
-        val mergeCanvas = merged.canvas
-        var clipBase: Bitmap? = null
-        layers.filter { isLayerVisible(it) }.forEach { layer ->
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-                layer.blendMode.applyTo(this)
-            }
-            layer.applyColorAdjustments(paint)
-            val clipped = if (layer.isClippedToBelow && clipBase != null) {
-                Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { temp ->
-                    val tempCanvas = Canvas(temp)
-                    tempCanvas.drawBitmap(layer.bitmap, 0f, 0f, null)
-                    tempCanvas.drawBitmap(clipBase!!, 0f, 0f, Paint().apply {
-                        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-                    })
-                }
-            } else null
-            mergeCanvas.drawBitmap(clipped ?: layer.bitmap, 0f, 0f, paint)
-            paint.colorFilter = null
-            clipped?.recycle()
-            if (!layer.isClippedToBelow) clipBase = layer.bitmap
-        }
+        merged.canvas.drawBitmap(mergedBitmap, 0f, 0f, null)
+        mergedBitmap.recycle()
         layers.clear()
         layers.add(merged)
         activeLayerIndex = 0
+        layerGroups.clear()
         invalidate()
-    }
-
-    /** Renders the visible stack without flattening or mutating the editable layers. */
-    private fun renderLayersComposite(sourceLayers: List<ArtLayer>, backgroundColor: Int? = null, includeVectors: Boolean = true): Bitmap {
-        val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
-        val outputCanvas = Canvas(output)
-        if (backgroundColor != null) outputCanvas.drawColor(backgroundColor)
-        else PaperTexture.draw(
-            outputCanvas,
-            RectF(0f, 0f, documentWidth.toFloat(), documentHeight.toFloat()),
-            paperKind,
-            paperStrength
-        )
-        var clipBase: Bitmap? = null
-        sourceLayers.filter { isLayerVisible(it) }.forEach { layer ->
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-                layer.blendMode.applyTo(this)
-            }
-            layer.applyColorAdjustments(paint)
-            val layerRaster = layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)
-            if (includeVectors) VectorRenderer.draw(Canvas(layerRaster), layer.vectorPaths)
-            val clipped = if (layer.isClippedToBelow && clipBase != null) {
-                Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { temp ->
-                    val tempCanvas = Canvas(temp)
-                    tempCanvas.drawBitmap(layerRaster, 0f, 0f, null)
-                    tempCanvas.drawBitmap(clipBase!!, 0f, 0f, Paint().apply {
-                        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-                    })
-                }
-            } else null
-            val source = clipped ?: layerRaster
-            val masked = if (layer.maskEnabled && layer.maskBitmap != null) {
-                val result = source.copy(Bitmap.Config.ARGB_8888, true)
-                Canvas(result).drawBitmap(layer.maskBitmap!!, 0f, 0f, Paint().apply {
-                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-                })
-                result
-            } else null
-            outputCanvas.drawBitmap(masked ?: source, 0f, 0f, paint)
-            if (!layer.isClippedToBelow) {
-                clipBase?.recycle()
-                clipBase = (masked ?: source).copy(Bitmap.Config.ARGB_8888, false)
-            }
-            masked?.recycle()
-            clipped?.recycle()
-            layerRaster.recycle()
-        }
-        clipBase?.recycle()
-        return output
     }
 
     fun renderComposite(backgroundColor: Int? = null): Bitmap =
