@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
@@ -22,6 +23,7 @@ import com.artstudio.pro.core.paper.PaperTexture
 import kotlin.math.min
 
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
+enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
@@ -44,6 +46,16 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var zoomFactor: Float = 1f
         private set
+    var selectionMode: SelectionMode = SelectionMode.NONE
+        private set
+    val hasSelection: Boolean get() = selectionRect != null
+    private var selectionRect: RectF? = null
+    private var selectionIsEllipse = false
+    private var selectionStartX = 0f
+    private var selectionStartY = 0f
+    private var isSelecting = false
+    private var activeCanvasSaveCount: Int? = null
+    private val mirrorSaveCounts = mutableListOf<Pair<Canvas, Int>>()
 
     fun setPaperTexture(kind: PaperKind, strength: Float = paperStrength) {
         paperKind = kind
@@ -156,6 +168,54 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         redoHistory.clear()
     }
 
+    fun setSelectionMode(mode: SelectionMode) {
+        selectionMode = mode
+        invalidate()
+    }
+
+    fun clearSelection() {
+        selectionRect = null
+        selectionIsEllipse = false
+        selectionMode = SelectionMode.NONE
+        invalidate()
+    }
+
+    private fun updateSelection(point: StrokePoint) {
+        selectionRect = RectF(
+            minOf(selectionStartX, point.x),
+            minOf(selectionStartY, point.y),
+            maxOf(selectionStartX, point.x),
+            maxOf(selectionStartY, point.y)
+        )
+        invalidate()
+    }
+
+    private fun applySelectionClip(target: Canvas): Int? {
+        val rect = selectionRect ?: return null
+        val save = target.save()
+        if (selectionIsEllipse) {
+            val path = Path().apply { addOval(rect, Path.Direction.CW) }
+            target.clipPath(path)
+        } else {
+            target.clipRect(rect)
+        }
+        return save
+    }
+
+    private fun drawSelection(canvas: Canvas) {
+        val rect = selectionRect ?: return
+        val viewRect = RectF(rect)
+        documentToView.mapRect(viewRect)
+        val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(210, 190, 255)
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+            pathEffect = android.graphics.DashPathEffect(floatArrayOf(9f, 6f), 0f)
+        }
+        if (selectionIsEllipse) canvas.drawOval(viewRect, selectionPaint)
+        else canvas.drawRect(viewRect, selectionPaint)
+    }
+
     fun setZoom(value: Float) {
         zoomFactor = value.coerceIn(0.25f, 16f)
         updateTransform()
@@ -186,6 +246,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         }
         transforms.forEach { (scaleX, scaleY) ->
             val mirroredCanvas = Canvas(activeBitmap).apply { scale(scaleX, scaleY, centerX, centerY) }
+            applySelectionClip(mirroredCanvas)?.let { mirrorSaveCounts += mirroredCanvas to it }
             val mirroredEngine = StrokeEngine(engine.brush, engine.activeColor).apply {
                 eraserMode = engine.eraserMode
             }
@@ -270,6 +331,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         canvas.drawBitmap(activeBitmap, null, viewportRect, bitmapPaint)
         canvas.restoreToCount(save)
         drawGrid(canvas)
+        drawSelection(canvas)
     }
 
     fun addLayer(name: String = "Layer ${layers.size}") {
@@ -448,6 +510,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         strokeActive = false
         strokeEngine?.finishStroke(activeCanvas)
         symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.finishStroke(mirrorCanvas) }
+        activeCanvasSaveCount?.let { activeCanvas.restoreToCount(it) }
+        activeCanvasSaveCount = null
+        mirrorSaveCounts.forEach { (mirrorCanvas, saveCount) -> mirrorCanvas.restoreToCount(saveCount) }
+        mirrorSaveCounts.clear()
         val targetLayer = activeLayer
         val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds) else emptyList()
         if (targetLayer.isAlphaLocked) {
@@ -512,6 +578,34 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             }
             return true
         }
+        if (selectionMode != SelectionMode.NONE) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    if (!viewportRect.contains(event.x, event.y)) return false
+                    val point = documentPoint(event)
+                    selectionStartX = point.x
+                    selectionStartY = point.y
+                    isSelecting = true
+                    selectionRect = RectF(point.x, point.y, point.x, point.y)
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (isSelecting) updateSelection(documentPoint(event))
+                    return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isSelecting) {
+                        updateSelection(documentPoint(event))
+                        selectionIsEllipse = selectionMode == SelectionMode.ELLIPSE
+                        selectionMode = SelectionMode.NONE
+                        isSelecting = false
+                        performClick()
+                    }
+                    return true
+                }
+            }
+            return true
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 if (!viewportRect.contains(event.x, event.y)) return false
@@ -522,6 +616,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 hasDirtyBounds = false
                 trackDirty(point)
                 strokeActive = true
+                activeCanvasSaveCount = applySelectionClip(activeCanvas)
                 strokeEngine?.startStroke(point, activeCanvas)
                 prepareSymmetryEngines()
                 symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.startStroke(point, mirrorCanvas) }
