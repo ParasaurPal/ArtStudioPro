@@ -354,7 +354,23 @@ fun StudioScreen() {
                                 if (paperKind == kind) Text("✓", color = MaterialTheme.colorScheme.primary)
                             }
                         }
- { Text("Close") }
+                    }
+                    if (paperKind != PaperKind.TRANSPARENT) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Texture strength · ${(paperStrength * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
+                        Slider(
+                            value = paperStrength,
+                            onValueChange = {
+                                paperStrength = it
+                                canvasView?.setPaperTexture(paperKind, it)
+                            },
+                            valueRange = 0f..1f
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPaperPicker = false }) { Text("Close") }
             }
         )
     }
