@@ -719,6 +719,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         updateTransform()
     }
 
+    private fun createLayerAlphaSource(layer: ArtLayer): Bitmap =
+        layer.renderMaskedBitmap().also { VectorRenderer.draw(Canvas(it), layer.vectorPaths) }
+
     private fun drawLayer(
         target: Canvas,
         layer: ArtLayer,
@@ -789,8 +792,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             layer.applyColorAdjustments(layerPaint)
             drawLayer(canvas, layer, layerPaint, viewportRect, clipBase)
             layerPaint.colorFilter = null
-            if (!layer.isClippedToBelow) clipBase = layer.bitmap
+            if (!layer.isClippedToBelow) {
+                clipBase?.recycle()
+                clipBase = createLayerAlphaSource(layer)
+            }
         }
+        clipBase?.recycle()
         layerPaint.xfermode = null
         layerPaint.alpha = 255
         canvas.drawBitmap(activeBitmap, null, viewportRect, bitmapPaint)
@@ -1237,11 +1244,15 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 result
             } else null
             outputCanvas.drawBitmap(masked ?: source, 0f, 0f, paint)
+            if (!layer.isClippedToBelow) {
+                clipBase?.recycle()
+                clipBase = (masked ?: source).copy(Bitmap.Config.ARGB_8888, false)
+            }
             masked?.recycle()
             clipped?.recycle()
             layerRaster.recycle()
-            if (!layer.isClippedToBelow) clipBase = layer.bitmap
         }
+        clipBase?.recycle()
         return output
     }
 
