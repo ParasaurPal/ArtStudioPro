@@ -372,7 +372,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 }
                 target.drawText(textToolContent, shapeStartX, shapeStartY, textPaint)
             }
-            DrawingTool.BRUSH -> Unit
+            DrawingTool.BRUSH, DrawingTool.VECTOR_EDIT -> Unit
         }
     }
 
