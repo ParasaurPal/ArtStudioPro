@@ -34,6 +34,24 @@ object PrintProduction {
         }
         return out
     }
+    fun preparePrintBitmap(source:Bitmap,settings:PrintSettings):Bitmap {
+        val bled=withBleed(source,settings)
+        val margin=if(settings.showCropMarks) settings.pixelsFromMm(8f).coerceAtLeast(24) else 0
+        if(margin==0)return bled
+        val out=Bitmap.createBitmap(bled.width+margin*2,bled.height+margin*2,Bitmap.Config.ARGB_8888)
+        val canvas=Canvas(out)
+        canvas.drawColor(Color.WHITE)
+        canvas.drawBitmap(bled,margin.toFloat(),margin.toFloat(),Paint(Paint.FILTER_BITMAP_FLAG))
+        val bleed=if(settings.includeBleed)settings.pixelsFromMm(settings.bleedMm).toFloat() else 0f
+        val content=RectF(
+            margin+bleed,margin+bleed,
+            margin+bleed+source.width,margin+bleed+source.height
+        )
+        drawCropMarks(canvas,content,bleed,settings.pixelsFromMm(5f).coerceAtLeast(18).toFloat())
+        bled.recycle()
+        return out
+    }
+
     fun drawCropMarks(canvas:Canvas,content:RectF,bleed:Float,markLength:Float=24f){
         val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK;strokeWidth=1f}
         val l=content.left-bleed;val t=content.top-bleed;val r=content.right+bleed;val b=content.bottom+bleed
