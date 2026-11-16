@@ -26,7 +26,7 @@ object ImportFormatReader {
         val bytes=if(mime.contains("photoshop")||mime.contains("tiff")||name.endsWith(".psd")||name.endsWith(".tif")||name.endsWith(".tiff")||mime.contains("svg")||name.endsWith(".svg")||mime=="application/octet-stream") {
             context.contentResolver.openInputStream(uri)?.use{it.readBytes()}?:error("Unable to read file.")
         } else null
-        val isPsd = mime.contains("photoshop") || name.endsWith(".psd") || bytes?.let { it.size>=4 && String(it,0,4,Charsets.US_ASCII)=="8BPS" } == true
+        val isPsd = name.endsWith(".psd") || bytes?.let { it.size>=4 && String(it,0,4,Charsets.US_ASCII)=="8BPS" } == true
         val isTiff = mime.contains("tiff") || name.endsWith(".tif") || name.endsWith(".tiff") || bytes?.let { it.size>=4 && it[0]=='I'.code.toByte() && it[1]=='I'.code.toByte() && it[2]==42.toByte() && it[3]==0.toByte() } == true
         val isSvg = mime.contains("svg") || name.endsWith(".svg") || bytes?.let { String(it.take(64).toByteArray(),Charsets.UTF_8).trimStart().startsWith("<") } == true
         val isPdf = mime.contains("pdf") || name.endsWith(".pdf") || bytes?.let { it.size>=4 && String(it,0,4,Charsets.US_ASCII)=="%PDF" } == true
