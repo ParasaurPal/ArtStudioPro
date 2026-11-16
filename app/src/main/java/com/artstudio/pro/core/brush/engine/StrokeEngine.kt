@@ -172,6 +172,24 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 }
                 detailPaint.style = Paint.Style.FILL
             }
+            brush.medium == BrushMedium.SCREENTONE -> {
+                detailPaint.color = activeColor
+                detailPaint.alpha = flowAlpha
+                detailPaint.style = Paint.Style.FILL
+                val spacing = (diameter / 5f).coerceAtLeast(2f)
+                val dotRadius = (spacing * (0.12f + normalizedPressure * 0.18f)).coerceAtLeast(0.5f)
+                var offsetY = -radius
+                while (offsetY <= radius) {
+                    var offsetX = -radius
+                    while (offsetX <= radius) {
+                        if (offsetX * offsetX + offsetY * offsetY <= radius * radius) {
+                            canvas.drawCircle(drawX + offsetX, drawY + offsetY, dotRadius, detailPaint)
+                        }
+                        offsetX += spacing
+                    }
+                    offsetY += spacing
+                }
+            }
             brush.medium == BrushMedium.GRAPHITE || brush.medium == BrushMedium.CHARCOAL -> {
                 canvas.drawCircle(drawX, drawY, radius, paint)
                 detailPaint.color = activeColor
