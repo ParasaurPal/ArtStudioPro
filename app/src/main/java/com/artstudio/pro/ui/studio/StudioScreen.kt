@@ -61,7 +61,7 @@ fun StudioScreen() {
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
             context.contentResolver.openOutputStream(uri)?.use {
-                ProjectArchive.save(it, documentWidth, documentHeight, view.layers)
+                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength)
             } ?: error("Unable to open the selected file.")
         }.onSuccess {
             Toast.makeText(context, "Project saved", Toast.LENGTH_SHORT).show()
@@ -99,6 +99,8 @@ fun StudioScreen() {
                 ?: error("Unable to open the selected project.")
             input.use { ProjectArchive.load(it) }
         }.onSuccess { project ->
+            paperKind = project.paperKind
+            canvasView?.setPaperTexture(project.paperKind, project.paperStrength)
             if (project.width == documentWidth && project.height == documentHeight) {
                 canvasView?.replaceLayers(project.layers)
                 layerRefresh++
