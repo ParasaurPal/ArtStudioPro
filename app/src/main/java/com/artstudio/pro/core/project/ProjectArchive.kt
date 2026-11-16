@@ -71,7 +71,8 @@ object ProjectArchive {
         val maskFile: String? = null,
         val maskEnabled: Boolean = true,
         val vectorPaths: List<VectorPath> = emptyList(),
-        val groupId: String? = null
+        val groupId: String? = null,
+        val isLocked: Boolean = false
     )
 
     data class LoadedProject(
@@ -102,7 +103,8 @@ object ProjectArchive {
         maskFile = if (layer.maskBitmap != null) file.removeSuffix(".png") + "_mask.png" else null,
         maskEnabled = layer.maskEnabled,
         vectorPaths = layer.vectorPaths.toList(),
-        groupId = layer.groupId
+        groupId = layer.groupId,
+        isLocked = layer.isLocked
     )
 
     private fun writeBitmap(zip: ZipOutputStream, bitmap: Bitmap, file: String) {
@@ -251,7 +253,8 @@ object ProjectArchive {
                 blendMode = runCatching { BlendMode.valueOf(metadata.blendMode) }.getOrDefault(BlendMode.NORMAL),
                 maskEnabled = metadata.maskEnabled,
                 vectorPaths = metadata.vectorPaths.toMutableList(),
-                groupId = metadata.groupId
+                groupId = metadata.groupId,
+                isLocked = metadata.isLocked
             ).also { layer ->
                 layer.canvas.drawBitmap(bitmap, 0f, 0f, null)
                 bitmap.recycle()
