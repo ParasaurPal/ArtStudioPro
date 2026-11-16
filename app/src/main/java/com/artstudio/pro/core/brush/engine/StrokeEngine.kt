@@ -69,7 +69,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         lastPressure = point.pressure
         applyPointDynamics(point)
         currentStrokeAngle = kotlin.math.atan2(point.y - lastY, point.x - lastX)
-        val smoothing = brush.streamline.coerceIn(0f, 0.95f)
+        val smoothing = maxOf(brush.streamline, brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.STROKE_SMOOTHING), brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.STABILIZATION_AMOUNT)).coerceIn(0f, 0.95f)
         val factor = 1f - smoothing
         val currentX = lastX + (point.x - lastX) * factor
         val currentY = lastY + (point.y - lastY) * factor
@@ -107,7 +107,8 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
             DynamicsSource.VELOCITY -> 1f - currentVelocity
             DynamicsSource.FIXED -> 1f
         }.coerceIn(0f, 1f)
-        val sizeFactor = brush.sizeCurve.evaluate(dynamicsValue)
+        val pressureSize = brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.PRESSURE_SIZE)
+        val sizeFactor = (brush.sizeCurve.evaluate(dynamicsValue) * (1f - pressureSize + pressureSize * normalizedPressure)).coerceIn(0f,1f)
         val minRatio = brush.minSizeRatio.coerceIn(0f, 1f)
         val sizeJitter = (noise(x * 0.73f + y * 0.37f) - 0.5f) * 2f * brush.sizeJitter.coerceIn(0f, 1f)
         val diameter = brush.baseSize.coerceAtLeast(1f) * (minRatio + (1f - minRatio) * sizeFactor) * (1f + sizeJitter)
@@ -138,14 +139,29 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         }.coerceIn(0f, 1f)
         val flowFactor = brush.flowCurve.evaluate(flowDynamics)
         val opacityFactor = brush.opacityCurve.evaluate(opacityDynamics)
+        val pressureOpacity = brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.PRESSURE_OPACITY)
+        val pressureFlow = brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.PRESSURE_FLOW)
         val flowAlpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
-            brush.flow.coerceIn(0f, 1f) * flowFactor * opacityFactor).toInt().coerceIn(0, 255)
+            brush.flow.coerceIn(0f, 1f) * flowFactor * opacityFactor *
+            (1f - pressureOpacity + pressureOpacity * normalizedPressure) *
+            (1f - pressureFlow + pressureFlow * normalizedPressure)).toInt().coerceIn(0, 255)
         val wetness = maxOf(brush.wetness, brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.WETNESS))
-        val pigmentColor = if ((brush.wetMixing || brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.WET_MIXING) > 0f) && wetness > 0f) {
+        var pigmentColor = if ((brush.wetMixing || brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.WET_MIXING) > 0f) && wetness > 0f) {
             PigmentMixer.mixPigments(previousPigmentColor, activeColor, (wetness * 0.18f).coerceIn(0f, 1f)).also {
                 previousPigmentColor = it
             }
         } else activeColor
+        val hueJitter = brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.HUE_JITTER)
+        val saturationJitter = brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.SATURATION_JITTER)
+        val brightnessJitter = brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.BRIGHTNESS_JITTER)
+        if (hueJitter + saturationJitter + brightnessJitter > 0f) {
+            val hsv = FloatArray(3)
+            Color.colorToHSV(pigmentColor,hsv)
+            hsv[0] = (hsv[0] + (noise(x+y+29f)-.5f)*360f*hueJitter + 360f) % 360f
+            hsv[1] = (hsv[1] * (1f + (noise(x-y+31f)-.5f)*saturationJitter)).coerceIn(0f,1f)
+            hsv[2] = (hsv[2] * (1f + (noise(x*y+37f)-.5f)*brightnessJitter)).coerceIn(0f,1f)
+            pigmentColor = Color.HSVToColor(Color.alpha(pigmentColor),hsv)
+        }
         paint.color = if (eraserMode) Color.WHITE else pigmentColor
         paint.alpha = when (brush.medium) {
             BrushMedium.WATERCOLOR -> (flowAlpha * 0.22f).toInt()
@@ -261,7 +277,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                         val angle=noise(x+i*13.7f)*Math.PI.toFloat()*2f
                         val distance=noise(y+i*7.3f)*radius
                         detailPaint.alpha=(flowAlpha*textureStrength*.55f).toInt().coerceIn(0,255)
-                        val dot=(diameter*.008f*brush.textureScale.coerceIn(.2f,5f)).coerceAtLeast(.4f)
+                        val dot=(diameter*.008f*brush.textureScale.coerceIn(.2f,5f)*(1f+brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.TEXTURE_SCALE)*4f)).coerceAtLeast(.4f)
                         canvas.drawCircle(drawX+kotlin.math.cos(angle)*distance,drawY+kotlin.math.sin(angle)*distance,dot,detailPaint)
                     }
                 }
