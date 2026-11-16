@@ -35,6 +35,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var paperStrength: Float = 1f
         private set
+    var showGrid: Boolean = false
+        private set
+    var gridSpacing: Int = 64
+        private set
+    var symmetryMode: SymmetryMode = SymmetryMode.NONE
+        private set
 
     fun setPaperTexture(kind: PaperKind, strength: Float = paperStrength) {
         paperKind = kind
@@ -239,6 +245,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layerPaint.alpha = 255
         canvas.drawBitmap(activeBitmap, null, viewportRect, bitmapPaint)
         canvas.restoreToCount(save)
+        drawGrid(canvas)
     }
 
     fun addLayer(name: String = "Layer ${layers.size}") {
