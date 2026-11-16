@@ -24,6 +24,8 @@ import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.vector.VectorPath
 import com.artstudio.pro.core.vector.VectorNode
 import com.artstudio.pro.core.vector.VectorRenderer
+import com.artstudio.pro.core.filters.FilterEngine
+import com.artstudio.pro.core.filters.ImageFilter
 import com.artstudio.pro.core.paper.PaperKind
 import com.artstudio.pro.core.paper.PaperTexture
 import kotlin.math.min
@@ -631,6 +633,18 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         drawGrid(canvas)
         drawSelection(canvas)
         drawRulers(canvas)
+    }
+
+    fun createFilterLayer(filter: ImageFilter, amount: Float = 1f): Boolean {
+        if (layers.size >= maxLayerCount) return false
+        val filtered = FilterEngine.apply(activeLayer.renderMaskedBitmap(), filter, amount)
+        val layer = ArtLayer(name = "${filter.label} adjustment", width = documentWidth, height = documentHeight)
+        layer.canvas.drawBitmap(filtered, 0f, 0f, null)
+        filtered.recycle()
+        layers.add(activeLayerIndex + 1, layer)
+        activeLayerIndex++
+        invalidate()
+        return true
     }
 
     fun addVectorPath(path: VectorPath) {
