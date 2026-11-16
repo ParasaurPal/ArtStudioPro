@@ -3,6 +3,8 @@ package com.artstudio.pro.core.project
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import com.artstudio.pro.core.model.ArtLayer
+import com.artstudio.pro.core.model.AnimationFrame
+import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.paper.PaperKind
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -15,13 +17,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
-/**
- * Native .asp project archive.
- *
- * The archive is a ZIP containing project.json and one lossless PNG per layer.
- * Keeping layers separate preserves editability instead of silently flattening
- * the user's work on save.
- */
+/** Editable native project archive: metadata plus lossless per-layer PNGs. */
 object ProjectArchive {
     private val json = Json {
         prettyPrint = true
@@ -38,7 +34,15 @@ object ProjectArchive {
         val layers: List<LayerManifest>,
         val paperKind: String = PaperKind.SMOOTH.name,
         val paperStrength: Float = 1f,
-        val dpi: Int = 300
+        val dpi: Int = 300,
+        val frames: List<FrameManifest> = emptyList(),
+        val currentFrameIndex: Int = 0
+    )
+
+    @Serializable
+    data class FrameManifest(
+        val durationMs: Int = 100,
+        val layers: List<LayerManifest>
     )
 
     @Serializable
@@ -61,8 +65,33 @@ object ProjectArchive {
         val layers: List<ArtLayer>,
         val paperKind: PaperKind = PaperKind.SMOOTH,
         val paperStrength: Float = 1f,
-        val dpi: Int = 300
+        val dpi: Int = 300,
+        val frames: List<AnimationFrame> = emptyList(),
+        val currentFrameIndex: Int = 0
     )
+
+    private fun layerManifest(layer: ArtLayer, file: String) = LayerManifest(
+        file = file,
+        name = layer.name,
+        opacity = layer.opacity.coerceIn(0f, 1f),
+        visible = layer.isVisible,
+        alphaLocked = layer.isAlphaLocked,
+        blendMode = layer.blendMode.name,
+        clippedToBelow = layer.isClippedToBelow,
+        brightness = layer.brightness,
+        contrast = layer.contrast,
+        saturation = layer.saturation
+    )
+
+    private fun writeLayer(zip: ZipOutputStream, layer: ArtLayer, file: String) {
+        val bytes = ByteArrayOutputStream()
+        check(layer.bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes)) {
+            "Could not encode layer: ${layer.name}"
+        }
+        zip.putNextEntry(ZipEntry(file))
+        zip.write(bytes.toByteArray())
+        zip.closeEntry()
+    }
 
     fun save(
         output: OutputStream,
@@ -71,53 +100,53 @@ object ProjectArchive {
         layers: List<ArtLayer>,
         paperKind: PaperKind = PaperKind.SMOOTH,
         paperStrength: Float = 1f,
-        dpi: Int = 300
+        dpi: Int = 300,
+        frames: List<AnimationFrame> = emptyList(),
+        currentFrameIndex: Int = 0
     ) {
         require(width > 0 && height > 0) { "Project dimensions must be positive." }
         require(layers.isNotEmpty()) { "A project must contain at least one layer." }
         require(layers.all { it.width == width && it.height == height }) {
             "All layers must match the project dimensions."
         }
-        require(width.toLong() * height.toLong() * layers.size.toLong() <= 64_000_000L) {
-            "This project exceeds the safe mobile memory budget. Merge layers or reduce the canvas size before saving."
+        val framesToSave = if (frames.isEmpty()) {
+            listOf(AnimationFrame(100, layers.toMutableList()))
+        } else frames
+        require(framesToSave.size <= 120 && framesToSave.all { frame ->
+            frame.layers.isNotEmpty() && frame.layers.all { it.width == width && it.height == height }
+        }) { "The animation frame data is invalid." }
+        val totalLayerBitmaps = framesToSave.sumOf { it.layers.size.toLong() }
+        require(width.toLong() * height.toLong() * totalLayerBitmaps <= 64_000_000L) {
+            "This project exceeds the safe mobile memory budget. Reduce layers, frames, or canvas size before saving."
         }
-
+        val selectedIndex = currentFrameIndex.coerceIn(0, framesToSave.lastIndex)
+        val frameManifests = framesToSave.mapIndexed { frameIndex, frame ->
+            FrameManifest(
+                durationMs = frame.durationMs.coerceIn(20, 5000),
+                layers = frame.layers.mapIndexed { layerIndex, layer ->
+                    layerManifest(layer, "frames/frame_%03d/layer_%03d.png".format(frameIndex, layerIndex))
+                }
+            )
+        }
         val manifest = ProjectManifest(
             width = width,
             height = height,
             paperKind = paperKind.name,
             paperStrength = paperStrength.coerceIn(0f, 1f),
             dpi = dpi.coerceIn(36, 2400),
-            layers = layers.mapIndexed { index, layer ->
-                LayerManifest(
-                    file = "layers/layer_%03d.png".format(index),
-                    name = layer.name,
-                    opacity = layer.opacity.coerceIn(0f, 1f),
-                    visible = layer.isVisible,
-                    alphaLocked = layer.isAlphaLocked,
-                    blendMode = layer.blendMode.name,
-                    clippedToBelow = layer.isClippedToBelow,
-                    brightness = layer.brightness,
-                    contrast = layer.contrast,
-                    saturation = layer.saturation
-                )
-            }
+            layers = frameManifests[selectedIndex].layers,
+            frames = frameManifests,
+            currentFrameIndex = selectedIndex
         )
 
         ZipOutputStream(output.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry("project.json"))
             zip.write(json.encodeToString(manifest).toByteArray(Charsets.UTF_8))
             zip.closeEntry()
-
-            manifest.layers.forEachIndexed { index, metadata ->
-                val bitmap = layers[index].bitmap
-                val bytes = ByteArrayOutputStream()
-                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes)) {
-                    "Could not encode layer: ${layers[index].name}"
+            framesToSave.forEachIndexed { frameIndex, frame ->
+                frame.layers.forEachIndexed { layerIndex, layer ->
+                    writeLayer(zip, layer, frameManifests[frameIndex].layers[layerIndex].file)
                 }
-                zip.putNextEntry(ZipEntry(metadata.file))
-                zip.write(bytes.toByteArray())
-                zip.closeEntry()
             }
             zip.finish()
         }
@@ -125,11 +154,12 @@ object ProjectArchive {
 
     fun load(input: InputStream): LoadedProject {
         val entries = mutableMapOf<String, ByteArray>()
+        val allowedPath = Regex("(project\\.json|layers/[A-Za-z0-9_.-]+\\.png|frames/frame_[0-9]{3}/layer_[0-9]{3}\\.png)")
         ZipInputStream(input.buffered()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
                 if (!entry.isDirectory) {
-                    require(entry.name == "project.json" || entry.name.matches(Regex("layers/[A-Za-z0-9_.-]+\\.png"))) {
+                    require(allowedPath.matches(entry.name)) {
                         "The project contains an unsupported file path."
                     }
                     val bytes = ByteArrayOutputStream()
@@ -153,11 +183,16 @@ object ProjectArchive {
         require(manifest.layers.isNotEmpty() && manifest.layers.size <= 512) {
             "The project layer count is invalid."
         }
-        require(manifest.width.toLong() * manifest.height.toLong() * manifest.layers.size.toLong() <= 64_000_000L) {
+        val frameManifests = manifest.frames.ifEmpty { listOf(FrameManifest(100, manifest.layers)) }
+        require(frameManifests.size <= 120 && frameManifests.all { it.layers.isNotEmpty() && it.layers.size <= 512 }) {
+            "The animation frame count or layer count is invalid."
+        }
+        val totalLayerBitmaps = frameManifests.sumOf { it.layers.size.toLong() }
+        require(manifest.width.toLong() * manifest.height.toLong() * totalLayerBitmaps <= 64_000_000L) {
             "This project exceeds the safe mobile memory budget."
         }
 
-        val loadedLayers = manifest.layers.map { metadata ->
+        fun decodeLayer(metadata: LayerManifest): ArtLayer {
             val encoded = entries[metadata.file]
                 ?: throw IllegalArgumentException("A project layer is missing: ${metadata.file}")
             val bitmap = BitmapFactory.decodeByteArray(encoded, 0, encoded.size)
@@ -166,7 +201,7 @@ object ProjectArchive {
                 bitmap.recycle()
                 "A project layer has dimensions that do not match the document."
             }
-            ArtLayer(
+            return ArtLayer(
                 name = metadata.name,
                 width = manifest.width,
                 height = manifest.height,
@@ -176,22 +211,31 @@ object ProjectArchive {
                 isClippedToBelow = metadata.clippedToBelow,
                 brightness = metadata.brightness.coerceIn(-1f, 1f),
                 contrast = metadata.contrast.coerceIn(0f, 2f),
-                saturation = metadata.saturation.coerceIn(0f, 2f)
+                saturation = metadata.saturation.coerceIn(0f, 2f),
+                blendMode = runCatching { BlendMode.valueOf(metadata.blendMode) }.getOrDefault(BlendMode.NORMAL)
             ).also { layer ->
                 layer.canvas.drawBitmap(bitmap, 0f, 0f, null)
-                layer.blendMode = runCatching {
-                    com.artstudio.pro.core.model.BlendMode.valueOf(metadata.blendMode)
-                }.getOrDefault(com.artstudio.pro.core.model.BlendMode.NORMAL)
                 bitmap.recycle()
             }
         }
+
+        val loadedFrames = frameManifests.map { frame ->
+            AnimationFrame(
+                durationMs = frame.durationMs.coerceIn(20, 5000),
+                layers = frame.layers.map(::decodeLayer).toMutableList()
+            )
+        }
+        val selectedIndex = manifest.currentFrameIndex.coerceIn(0, loadedFrames.lastIndex)
+        val selectedLayers = loadedFrames[selectedIndex].layers
         return LoadedProject(
-            manifest.width,
-            manifest.height,
-            loadedLayers,
-            runCatching { PaperKind.valueOf(manifest.paperKind) }.getOrDefault(PaperKind.SMOOTH),
-            manifest.paperStrength.coerceIn(0f, 1f),
-            manifest.dpi.coerceIn(36, 2400)
+            width = manifest.width,
+            height = manifest.height,
+            layers = selectedLayers,
+            paperKind = runCatching { PaperKind.valueOf(manifest.paperKind) }.getOrDefault(PaperKind.SMOOTH),
+            paperStrength = manifest.paperStrength.coerceIn(0f, 1f),
+            dpi = manifest.dpi.coerceIn(36, 2400),
+            frames = loadedFrames,
+            currentFrameIndex = selectedIndex
         )
     }
 }
