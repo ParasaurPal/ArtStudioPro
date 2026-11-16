@@ -267,7 +267,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             contrast = source.contrast,
             saturation = source.saturation,
             blendMode = source.blendMode,
-            groupId = source.groupId
+            groupId = source.groupId,
+            isLocked = source.isLocked
         ).also {
             if (copyPixels) {
                 it.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
@@ -890,6 +891,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun transformActiveLayer(scaleX: Float = 1f, scaleY: Float = 1f, rotationDegrees: Float = 0f, translateX: Float = 0f, translateY: Float = 0f) {
         val layer = activeLayer
+        if (layer.isLocked) return
         val cx = documentWidth / 2f
         val cy = documentHeight / 2f
         fun transformed(source: Bitmap): Bitmap {
@@ -1061,6 +1063,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun floodFillAt(x: Float, y: Float, color: Int, tolerance: Int = 24): Boolean {
+        if (activeLayer.isLocked) return false
         val width = documentWidth
         val height = documentHeight
         val count = width.toLong() * height
@@ -1116,6 +1119,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun addVectorPath(path: VectorPath) {
+        if (activeLayer.isLocked) return
         activeLayer.vectorPaths.add(path)
         invalidate()
     }
@@ -1189,7 +1193,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             isAlphaLocked = source.isAlphaLocked, isClippedToBelow = source.isClippedToBelow,
             brightness = source.brightness, contrast = source.contrast, saturation = source.saturation,
             blendMode = source.blendMode,
-            groupId = source.groupId
+            groupId = source.groupId,
+            isLocked = source.isLocked
         )
         copy.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
         copy.vectorPaths.addAll(source.vectorPaths)
@@ -1202,6 +1207,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun deleteActiveLayer() {
+        if (activeLayer.isLocked) return
         if (layers.size <= 1) {
             activeLayer.clear()
         } else {
@@ -1232,6 +1238,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun clearActiveLayer() {
+        if (activeLayer.isLocked) return
         activeLayer.clear()
         invalidate()
     }
@@ -1463,6 +1470,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             })
         }
         val targetLayer = activeLayer
+        if (targetLayer.isLocked) {
+            activeBitmap.eraseColor(Color.TRANSPARENT)
+            activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+            hasDirtyBounds = false
+            return
+        }
         val historyBitmap = if (isEditingLayerMask) targetLayer.ensureMask() else targetLayer.bitmap
         val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds, historyBitmap) else emptyList()
         if (isEditingLayerMask) {
