@@ -748,6 +748,49 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         drawSafeMargin(canvas)
     }
 
+    fun transformActiveLayer(scaleX: Float = 1f, scaleY: Float = 1f, rotationDegrees: Float = 0f, translateX: Float = 0f, translateY: Float = 0f) {
+        val layer = activeLayer
+        val cx = documentWidth / 2f
+        val cy = documentHeight / 2f
+        fun transformed(source: Bitmap): Bitmap {
+            val result = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(result)
+            canvas.translate(cx + translateX, cy + translateY)
+            canvas.rotate(rotationDegrees)
+            canvas.scale(scaleX.coerceIn(-4f,4f), scaleY.coerceIn(-4f,4f))
+            canvas.translate(-cx, -cy)
+            canvas.drawBitmap(source, 0f, 0f, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+            return result
+        }
+        val transformedPixels = transformed(layer.bitmap)
+        layer.bitmap.eraseColor(Color.TRANSPARENT)
+        layer.canvas.drawBitmap(transformedPixels, 0f, 0f, null)
+        transformedPixels.recycle()
+        layer.maskBitmap?.let { mask ->
+            val transformedMask = transformed(mask)
+            Canvas(mask).drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+            Canvas(mask).drawBitmap(transformedMask, 0f, 0f, null)
+            transformedMask.recycle()
+        }
+        val radians = Math.toRadians(rotationDegrees.toDouble())
+        val cosA = kotlin.math.cos(radians).toFloat()
+        val sinA = kotlin.math.sin(radians).toFloat()
+        layer.vectorPaths.indices.forEach { pathIndex ->
+            val path = layer.vectorPaths[pathIndex]
+            val nodes = path.nodes.map { node ->
+                fun point(x:Float,y:Float):Pair<Float,Float>{
+                    val sx=(x-cx)*scaleX+translateX
+                    val sy=(y-cy)*scaleY+translateY
+                    return Pair(cx+sx*cosA-sy*sinA,cy+sx*sinA+sy*cosA)
+                }
+                val p=point(node.x,node.y);val incoming=point(node.controlInX,node.controlInY);val outgoing=point(node.controlOutX,node.controlOutY)
+                VectorNode(p.first,p.second,incoming.first,incoming.second,outgoing.first,outgoing.second)
+            }
+            layer.vectorPaths[pathIndex]=path.copy(nodes=nodes)
+        }
+        invalidate()
+    }
+
     fun createFilterLayer(filter: ImageFilter, amount: Float = 1f): Boolean {
         if (layers.size >= maxLayerCount) return false
         val source = activeLayer.renderMaskedBitmap()
