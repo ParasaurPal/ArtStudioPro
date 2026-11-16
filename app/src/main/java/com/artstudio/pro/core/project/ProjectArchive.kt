@@ -7,6 +7,7 @@ import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.AnimationFrame
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.paper.PaperKind
+import com.artstudio.pro.core.vector.VectorPath
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -59,7 +60,8 @@ object ProjectArchive {
         val contrast: Float = 1f,
         val saturation: Float = 1f,
         val maskFile: String? = null,
-        val maskEnabled: Boolean = true
+        val maskEnabled: Boolean = true,
+        val vectorPaths: List<VectorPath> = emptyList()
     )
 
     data class LoadedProject(
@@ -85,7 +87,8 @@ object ProjectArchive {
         contrast = layer.contrast,
         saturation = layer.saturation,
         maskFile = if (layer.maskBitmap != null) file.removeSuffix(".png") + "_mask.png" else null,
-        maskEnabled = layer.maskEnabled
+        maskEnabled = layer.maskEnabled,
+        vectorPaths = layer.vectorPaths.toList()
     )
 
     private fun writeBitmap(zip: ZipOutputStream, bitmap: Bitmap, file: String) {
@@ -223,7 +226,8 @@ object ProjectArchive {
                 contrast = metadata.contrast.coerceIn(0f, 2f),
                 saturation = metadata.saturation.coerceIn(0f, 2f),
                 blendMode = runCatching { BlendMode.valueOf(metadata.blendMode) }.getOrDefault(BlendMode.NORMAL),
-                maskEnabled = metadata.maskEnabled
+                maskEnabled = metadata.maskEnabled,
+                vectorPaths = metadata.vectorPaths.toMutableList()
             ).also { layer ->
                 layer.canvas.drawBitmap(bitmap, 0f, 0f, null)
                 bitmap.recycle()
