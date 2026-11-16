@@ -33,6 +33,7 @@ import kotlin.math.min
 
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
+enum class PerspectiveMode { OFF, ONE_POINT, TWO_POINT, THREE_POINT }
 enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT }
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
@@ -75,6 +76,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     var gridSpacing: Int = 64
         private set
     var symmetryMode: SymmetryMode = SymmetryMode.NONE
+        private set
+    var perspectiveMode: PerspectiveMode = PerspectiveMode.OFF
         private set
     var zoomFactor: Float = 1f
         private set
@@ -507,6 +510,51 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    fun setPerspectiveMode(mode: PerspectiveMode) {
+        perspectiveMode = mode
+        invalidate()
+    }
+
+    private fun drawPerspectiveGuides(canvas: Canvas) {
+        if (perspectiveMode == PerspectiveMode.OFF) return
+        val guide = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(125, 115, 190, 235)
+            strokeWidth = 1.5f
+            pathEffect = android.graphics.DashPathEffect(floatArrayOf(10f, 8f), 0f)
+        }
+        val left = floatArrayOf(0f, documentHeight * .42f)
+        val right = floatArrayOf(documentWidth.toFloat(), documentHeight * .42f)
+        val top = floatArrayOf(documentWidth * .5f, 0f)
+        val bottomLeft = floatArrayOf(0f, documentHeight.toFloat())
+        val bottomRight = floatArrayOf(documentWidth.toFloat(), documentHeight.toFloat())
+        fun line(a: FloatArray, b: FloatArray) {
+            val points = floatArrayOf(a[0],a[1],b[0],b[1])
+            documentToView.mapPoints(points)
+            canvas.drawLine(points[0],points[1],points[2],points[3],guide)
+        }
+        when (perspectiveMode) {
+            PerspectiveMode.ONE_POINT -> {
+                val vanishing = floatArrayOf(documentWidth*.5f,documentHeight*.42f)
+                line(vanishing,floatArrayOf(0f,0f));line(vanishing,floatArrayOf(documentWidth.toFloat(),0f))
+                line(vanishing,bottomLeft);line(vanishing,bottomRight)
+            }
+            PerspectiveMode.TWO_POINT -> {
+                val lv=floatArrayOf(documentWidth*.08f,documentHeight*.42f)
+                val rv=floatArrayOf(documentWidth*.92f,documentHeight*.42f)
+                line(lv,floatArrayOf(0f,0f));line(lv,bottomLeft);line(lv,floatArrayOf(documentWidth*.5f,documentHeight*.65f))
+                line(rv,floatArrayOf(documentWidth.toFloat(),0f));line(rv,bottomRight);line(rv,floatArrayOf(documentWidth*.5f,documentHeight*.65f))
+            }
+            PerspectiveMode.THREE_POINT -> {
+                val lv=floatArrayOf(documentWidth*.08f,documentHeight*.55f)
+                val rv=floatArrayOf(documentWidth*.92f,documentHeight*.55f)
+                val tv=floatArrayOf(documentWidth*.5f,-documentHeight*.7f)
+                line(lv,floatArrayOf(0f,0f));line(lv,bottomLeft);line(rv,floatArrayOf(documentWidth.toFloat(),0f));line(rv,bottomRight)
+                line(tv,floatArrayOf(0f,0f));line(tv,floatArrayOf(documentWidth.toFloat(),0f));line(tv,bottomLeft);line(tv,bottomRight)
+            }
+            PerspectiveMode.OFF -> Unit
+        }
+    }
+
     fun setRulers(enabled: Boolean) {
         showRulers = enabled
         invalidate()
@@ -670,6 +718,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         canvas.drawBitmap(activeBitmap, null, viewportRect, bitmapPaint)
         canvas.restoreToCount(save)
         drawGrid(canvas)
+        drawPerspectiveGuides(canvas)
         drawSelection(canvas)
         drawVectorNodeHandles(canvas)
         drawRulers(canvas)
