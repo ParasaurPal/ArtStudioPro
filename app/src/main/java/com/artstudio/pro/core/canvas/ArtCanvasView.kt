@@ -237,9 +237,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             blendMode = source.blendMode,
             groupId = source.groupId
         ).also {
-            if (copyPixels) it.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
-            it.vectorPaths.addAll(source.vectorPaths)
-            source.maskBitmap?.let { mask -> it.createMask(false).also { targetMask -> Canvas(targetMask).drawBitmap(mask, 0f, 0f, null) } }
+            if (copyPixels) {
+                it.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
+                it.vectorPaths.addAll(source.vectorPaths)
+                source.maskBitmap?.let { mask ->
+                    it.createMask(false).also { targetMask -> Canvas(targetMask).drawBitmap(mask, 0f, 0f, null) }
+                }
+            }
             it.maskEnabled = source.maskEnabled
         }
     }
