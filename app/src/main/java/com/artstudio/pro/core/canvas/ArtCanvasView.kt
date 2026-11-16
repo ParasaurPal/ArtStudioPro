@@ -668,7 +668,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     /** Renders the visible stack without flattening or mutating the editable layers. */
-    fun renderComposite(backgroundColor: Int? = null): Bitmap {
+    private fun renderLayersComposite(sourceLayers: List<ArtLayer>, backgroundColor: Int? = null): Bitmap {
         val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
         val outputCanvas = Canvas(output)
         if (backgroundColor != null) outputCanvas.drawColor(backgroundColor)
@@ -679,7 +679,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             paperStrength
         )
         var clipBase: Bitmap? = null
-        layers.filter { it.isVisible }.forEach { layer ->
+        sourceLayers.filter { it.isVisible }.forEach { layer ->
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
                 xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
@@ -695,11 +695,18 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 }
             } else null
             outputCanvas.drawBitmap(clipped ?: layer.bitmap, 0f, 0f, paint)
-            paint.colorFilter = null
             clipped?.recycle()
             if (!layer.isClippedToBelow) clipBase = layer.bitmap
         }
         return output
+    }
+
+    fun renderComposite(backgroundColor: Int? = null): Bitmap =
+        renderLayersComposite(layers, backgroundColor)
+
+    fun renderFrameComposite(index: Int, backgroundColor: Int? = null): Bitmap {
+        val frame = animationFrames.getOrNull(index) ?: error("Animation frame does not exist.")
+        return renderLayersComposite(frame.layers, backgroundColor)
     }
 
     fun addImageLayer(bitmap: Bitmap, name: String = "Imported image") {
