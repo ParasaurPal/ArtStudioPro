@@ -11,6 +11,7 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.engine.StrokePoint
@@ -41,6 +42,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var symmetryMode: SymmetryMode = SymmetryMode.NONE
         private set
+    var zoomFactor: Float = 1f
+        private set
     var showGrid: Boolean = false
         private set
     var gridSpacing: Int = 64
@@ -67,6 +70,18 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private var previousInputX = 0f
     private var previousInputY = 0f
     private var previousInputTime = 0L
+    private var panX = 0f
+    private var panY = 0f
+    private var lastFocusX = 0f
+    private var lastFocusY = 0f
+    private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScale(detector: ScaleGestureDetector): Boolean {
+            zoomFactor = (zoomFactor * detector.scaleFactor).coerceIn(0.25f, 16f)
+            updateTransform()
+            invalidate()
+            return true
+        }
+    })
 
     private data class TileState(val x: Int, val y: Int, val bitmap: Bitmap)
     private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>)
@@ -145,6 +160,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         redoHistory.clear()
     }
 
+    fun setZoom(value: Float) {
+        zoomFactor = value.coerceIn(0.25f, 16f)
+        updateTransform()
+        invalidate()
+    }
+
     fun setGrid(enabled: Boolean, spacing: Int = gridSpacing) {
         showGrid = enabled
         gridSpacing = spacing.coerceIn(8, 1024)
@@ -198,9 +219,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     private fun updateTransform() {
         if (width <= 0 || height <= 0) return
-        val scale = min(width.toFloat() / documentWidth, height.toFloat() / documentHeight)
-        val left = (width - documentWidth * scale) / 2f
-        val top = (height - documentHeight * scale) / 2f
+        val scale = min(width.toFloat() / documentWidth, height.toFloat() / documentHeight) * zoomFactor
+        val left = (width - documentWidth * scale) / 2f + panX
+        val top = (height - documentHeight * scale) / 2f + panY
         viewportRect.set(left, top, left + documentWidth * scale, top + documentHeight * scale)
         documentToView.setRectToRect(documentRect, viewportRect, Matrix.ScaleToFit.FILL)
         transformReady = documentToView.invert(viewToDocument)
@@ -464,6 +485,32 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!transformReady) updateTransform()
         if (!transformReady) return false
+        scaleDetector.onTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+            lastFocusX = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
+            lastFocusY = (0 until event.pointerCount).map { event.getY(it) }.average().toFloat()
+            commitStroke()
+            return true
+        }
+        if (event.pointerCount > 1 && event.actionMasked == MotionEvent.ACTION_MOVE) {
+            val focusX = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
+            val focusY = (0 until event.pointerCount).map { event.getY(it) }.average().toFloat()
+            panX += focusX - lastFocusX
+            panY += focusY - lastFocusY
+            lastFocusX = focusX
+            lastFocusY = focusY
+            updateTransform()
+            invalidate()
+            return true
+        }
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
+            val remaining = (0 until event.pointerCount).filter { it != event.actionIndex }
+            if (remaining.isNotEmpty()) {
+                lastFocusX = remaining.map { event.getX(it) }.average().toFloat()
+                lastFocusY = remaining.map { event.getY(it) }.average().toFloat()
+            }
+            return true
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 if (!viewportRect.contains(event.x, event.y)) return false
