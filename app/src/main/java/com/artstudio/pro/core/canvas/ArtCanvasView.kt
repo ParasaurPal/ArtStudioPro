@@ -310,7 +310,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             frame.layers.isNotEmpty() &&
                 frame.layers.all { it.width == documentWidth && it.height == documentHeight }
         })
-        require(frames.sumOf { it.layers.size.toLong() } * documentWidth.toLong() * documentHeight.toLong() <= 64_000_000L)
+        require(frames.sumOf { frame -> frame.layers.sumOf { 1L + if (it.maskBitmap != null) 1L else 0L } } * documentWidth.toLong() * documentHeight.toLong() <= 64_000_000L)
         stopPlayback()
         animationFrames.clear()
         animationFrames.addAll(frames)
