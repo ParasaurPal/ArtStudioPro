@@ -648,6 +648,53 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         return true
     }
 
+    fun addVectorRectangle() {
+        val cx = documentWidth / 2f
+        val cy = documentHeight / 2f
+        val w = documentWidth * .35f
+        val h = documentHeight * .25f
+        val color = strokeEngine?.activeColor ?: Color.BLACK
+        addVectorPath(VectorPath(
+            id = java.util.UUID.randomUUID().toString(),
+            nodes = listOf(
+                VectorNode(cx-w/2,cy-h/2),VectorNode(cx+w/2,cy-h/2),
+                VectorNode(cx+w/2,cy+h/2),VectorNode(cx-w/2,cy+h/2)
+            ),
+            closed = true, strokeColor = color, strokeWidth = 8f, name = "Vector rectangle"
+        ))
+    }
+
+    fun addVectorEllipse() {
+        val cx = documentWidth / 2f
+        val cy = documentHeight / 2f
+        val rx = documentWidth * .18f
+        val ry = documentHeight * .13f
+        val k = .55228475f
+        val color = strokeEngine?.activeColor ?: Color.BLACK
+        addVectorPath(VectorPath(
+            id = java.util.UUID.randomUUID().toString(),
+            nodes = listOf(
+                VectorNode(cx,cy-ry,cx-rx*k,cy-ry,cx+rx*k,cy-ry),
+                VectorNode(cx+rx,cy,cx+rx,cy-ry*k,cx+rx,cy+ry*k),
+                VectorNode(cx,cy+ry,cx+rx*k,cy+ry,cx-rx*k,cy+ry),
+                VectorNode(cx-rx,cy,cx-rx,cy+ry*k,cx-rx,cy-ry*k)
+            ),
+            closed = true, strokeColor = color, strokeWidth = 8f, name = "Vector ellipse"
+        ))
+    }
+
+    fun addVectorLine() {
+        val color = strokeEngine?.activeColor ?: Color.BLACK
+        addVectorPath(VectorPath(
+            id = java.util.UUID.randomUUID().toString(),
+            nodes = listOf(
+                VectorNode(documentWidth*.2f,documentHeight*.5f),
+                VectorNode(documentWidth*.8f,documentHeight*.5f)
+            ),
+            strokeColor = color, strokeWidth = 8f, name = "Vector line"
+        ))
+    }
+
     fun addVectorPath(path: VectorPath) {
         activeLayer.vectorPaths.add(path)
         invalidate()
