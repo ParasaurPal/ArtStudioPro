@@ -4,7 +4,14 @@ import android.graphics.Color
 import kotlin.math.pow
 
 enum class ColorProfile(val displayName:String) {
-    SRGB("sRGB IEC61966-2.1"), DISPLAY_P3("Display P3"), WIDE_GAMUT_RGB_1998("Wide-gamut RGB"), GRAYSCALE("Grayscale"), CMYK_SWOP("CMYK print simulation")
+    SRGB("sRGB IEC61966-2.1"), DISPLAY_P3("Display P3"), WIDE_GAMUT_RGB_1998("Wide-gamut RGB 1998"), GRAYSCALE("Grayscale"), CMYK_SWOP("CMYK print simulation");
+
+    companion object {
+        fun fromStoredName(name: String): ColorProfile = when (name) {
+            "ADOBE_RGB" -> WIDE_GAMUT_RGB_1998
+            else -> runCatching { valueOf(name) }.getOrDefault(SRGB)
+        }
+    }
 }
 
 enum class ColorHarmony { COMPLEMENTARY, ANALOGOUS, TRIADIC, SPLIT_COMPLEMENTARY, TETRADIC, MONOCHROMATIC }
