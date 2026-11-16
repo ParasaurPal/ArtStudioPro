@@ -90,7 +90,7 @@ object RasterFormatWriter {
         entry(283,5,1,yResOffset.toLong())
         entry(284,3,1,1)
         entry(296,3,1,2)
-        entry(338,3,1,2)
+        entry(338,3,1,1)
         entry(339,3,4,sampleFormatOffset.toLong())
         out.u32(0)
         repeat(4){out.u16(16)}
