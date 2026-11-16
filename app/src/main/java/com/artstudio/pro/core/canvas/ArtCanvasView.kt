@@ -48,7 +48,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private val layerPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val viewToDocument = Matrix()
     private val documentToView = Matrix()
-    private var transformReady = false
+    private var transformReady = false\n    private var previousInputX = 0f\n    private var previousInputY = 0f\n    private var previousInputTime = 0L
 
     private data class TileState(val x: Int, val y: Int, val bitmap: Bitmap)
     private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>)
@@ -307,11 +307,19 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private fun documentPoint(event: MotionEvent): StrokePoint {
         val point = floatArrayOf(event.x, event.y)
         viewToDocument.mapPoints(point)
-        val pressure = event.pressure.takeIf { it > 0f } ?: 0.5f
-        return StrokePoint(
-            point[0].coerceIn(0f, documentWidth.toFloat()),
-            point[1].coerceIn(0f, documentHeight.toFloat()), pressure
-        )
+        val documentX = point[0].coerceIn(0f, documentWidth.toFloat())
+        val documentY = point[1].coerceIn(0f, documentHeight.toFloat())
+        val stylus = event.getToolType(event.actionIndex.coerceAtLeast(0)) == MotionEvent.TOOL_TYPE_STYLUS
+        val pressure = if (stylus) event.pressure.coerceIn(0f, 1f).takeIf { it > 0f } ?: 0.5f else 1f
+        val elapsed = (event.eventTime - previousInputTime).coerceAtLeast(1L).toFloat()
+        val speed = if (previousInputTime == 0L) 0f else
+            kotlin.math.hypot(documentX - previousInputX, documentY - previousInputY) / elapsed
+        previousInputX = documentX
+        previousInputY = documentY
+        previousInputTime = event.eventTime
+        val tilt = if (stylus) event.getAxisValue(MotionEvent.AXIS_TILT).coerceIn(0f, Math.PI.toFloat()) else 0f
+        val orientation = if (stylus) event.getAxisValue(MotionEvent.AXIS_ORIENTATION) else 0f
+        return StrokePoint(documentX, documentY, pressure, tilt, orientation, (speed / 2.5f).coerceIn(0f, 1f))
     }
 
     private fun commitStroke() {
