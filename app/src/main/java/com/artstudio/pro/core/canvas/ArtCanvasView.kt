@@ -41,6 +41,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var symmetryMode: SymmetryMode = SymmetryMode.NONE
         private set
+    var showGrid: Boolean = false
+        private set
+    var gridSpacing: Int = 64
+        private set
+    var symmetryMode: SymmetryMode = SymmetryMode.NONE
+        private set
 
     fun setPaperTexture(kind: PaperKind, strength: Float = paperStrength) {
         paperKind = kind
@@ -49,7 +55,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     private val activeBitmap = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
-    private val activeCanvas = Canvas(activeBitmap)\n    private val symmetryEngines = mutableListOf<Pair<Canvas, StrokeEngine>>()
+    private val activeCanvas = Canvas(activeBitmap)
+    private val symmetryEngines = mutableListOf<Pair<Canvas, StrokeEngine>>()
     private val documentRect = RectF(0f, 0f, documentWidth.toFloat(), documentHeight.toFloat())
     private val viewportRect = RectF()
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -420,7 +427,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     private fun commitStroke() {
-        strokeEngine?.finishStroke(activeCanvas)\n        symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.finishStroke(mirrorCanvas) }
+        strokeEngine?.finishStroke(activeCanvas)
+        symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.finishStroke(mirrorCanvas) }
         val targetLayer = activeLayer
         val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds) else emptyList()
         if (targetLayer.isAlphaLocked) {
@@ -438,7 +446,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         } else {
             targetLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, null)
         }
-        activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)\n        symmetryEngines.clear()
+        activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        symmetryEngines.clear()
         if (before.isNotEmpty()) {
             val after = captureTiles(targetLayer, dirtyBounds)
             redoHistory.forEach(::releaseChange)
@@ -464,14 +473,17 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 dirtyBounds.setEmpty()
                 hasDirtyBounds = false
                 trackDirty(point)
-                strokeEngine?.startStroke(point, activeCanvas)\n                prepareSymmetryEngines()\n                symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.startStroke(point, mirrorCanvas) }
+                strokeEngine?.startStroke(point, activeCanvas)
+                prepareSymmetryEngines()
+                symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.startStroke(point, mirrorCanvas) }
                 invalidate()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 val point = documentPoint(event)
                 trackDirty(point)
-                strokeEngine?.continueStroke(point, activeCanvas)\n                symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.continueStroke(point, mirrorCanvas) }
+                strokeEngine?.continueStroke(point, activeCanvas)
+                symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.continueStroke(point, mirrorCanvas) }
                 invalidate()
                 return true
             }
