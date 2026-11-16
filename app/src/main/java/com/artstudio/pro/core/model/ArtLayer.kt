@@ -78,7 +78,8 @@ data class ArtLayer(
     var blendMode: BlendMode = BlendMode.NORMAL,
     val vectorPaths: MutableList<VectorPath> = mutableListOf(),
     var maskEnabled: Boolean = true,
-    var groupId: String? = null
+    var groupId: String? = null,
+    var isLocked: Boolean = false
 ) {
     fun applyColorAdjustments(paint: Paint) {
         if (brightness == 0f && contrast == 1f && saturation == 1f) {
