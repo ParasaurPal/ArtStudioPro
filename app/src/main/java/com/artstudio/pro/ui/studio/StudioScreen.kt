@@ -496,6 +496,61 @@ fun StudioScreen() {
                             }
                         }
                     }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("Animation", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+                        TextButton(onClick = {
+                            val view = canvasView
+                            if (view != null) view.selectFrame((view.currentFrameIndex - 1).coerceAtLeast(0))
+                            layerRefresh++
+                        }) { Text("◀") }
+                        TextButton(onClick = {
+                            val view = canvasView
+                            if (view != null && !view.addBlankFrame()) Toast.makeText(context, "Maximum 120 frames.", Toast.LENGTH_SHORT).show()
+                            layerRefresh++
+                        }) { Text("+ Blank") }
+                        TextButton(onClick = {
+                            val view = canvasView
+                            if (view != null && !view.duplicateFrame()) Toast.makeText(context, "Maximum 120 frames.", Toast.LENGTH_SHORT).show()
+                            layerRefresh++
+                        }) { Text("Duplicate") }
+                        TextButton(onClick = { canvasView?.deleteFrame(); layerRefresh++ }) { Text("Delete") }
+                        TextButton(onClick = {
+                            canvasView?.let { it.setOnionSkin(!it.onionSkinEnabled) }
+                            layerRefresh++
+                        }) { Text(if (canvasView?.onionSkinEnabled == true) "Onion on" else "Onion off") }
+                        TextButton(onClick = {
+                            canvasView?.let { if (it.isPlaying) it.stopPlayback() else it.startPlayback() }
+                            layerRefresh++
+                        }) { Text(if (canvasView?.isPlaying == true) "Pause" else "Play") }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Frames", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+                        repeat(canvasView?.frameCount ?: 1) { index ->
+                            TextButton(
+                                onClick = { canvasView?.selectFrame(index); layerRefresh++ },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = if (canvasView?.currentFrameIndex == index) MaterialTheme.colorScheme.primary else Color.White
+                                )
+                            ) { Text("${index + 1}") }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Frame duration", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+                        Slider(
+                            value = (canvasView?.currentFrameDuration() ?: 100).toFloat(),
+                            onValueChange = { canvasView?.setFrameDuration(it.toInt()) },
+                            valueRange = 20f..1000f,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                        )
+                        Text("${canvasView?.currentFrameDuration() ?: 100} ms", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
