@@ -1,6 +1,7 @@
 package com.artstudio.pro.core.export
 
 import android.graphics.Bitmap
+import com.artstudio.pro.core.color.ColorManagement
 import java.io.DataOutputStream
 import java.io.OutputStream
 
@@ -57,6 +58,51 @@ object RasterFormatWriter {
         for(y in 0 until bitmap.height){
             bitmap.getPixels(row,0,bitmap.width,0,y,bitmap.width,1)
             for(c in row){out.u8(android.graphics.Color.red(c));out.u8(android.graphics.Color.green(c));out.u8(android.graphics.Color.blue(c))}
+        }
+        out.flush()
+    }
+
+    fun writeTiffCmyk(bitmap:Bitmap,output:OutputStream,dpi:Int=300) {
+        val entries=14
+        val ifdOffset=8
+        val ifdSize=2+entries*12+4
+        val bitsOffset=ifdOffset+ifdSize
+        val xResOffset=bitsOffset+8
+        val yResOffset=xResOffset+8
+        val pixelOffset=yResOffset+8
+        val byteCount=bitmap.width.toLong()*bitmap.height*4L
+        require(byteCount<=Int.MAX_VALUE){"CMYK TIFF is too large for this device."}
+        val out=LittleEndianWriter(output)
+        out.ascii("II");out.u16(42);out.u32(ifdOffset.toLong())
+        out.u16(entries)
+        fun entry(tag:Int,type:Int,count:Long,value:Long){out.u16(tag);out.u16(type);out.u32(count);out.u32(value)}
+        entry(256,4,1,bitmap.width.toLong())
+        entry(257,4,1,bitmap.height.toLong())
+        entry(258,3,4,bitsOffset.toLong())
+        entry(259,3,1,1)
+        entry(262,3,1,5)
+        entry(273,4,1,pixelOffset.toLong())
+        entry(277,3,1,4)
+        entry(278,4,1,bitmap.height.toLong())
+        entry(279,4,1,byteCount)
+        entry(282,5,1,xResOffset.toLong())
+        entry(283,5,1,yResOffset.toLong())
+        entry(284,3,1,1)
+        entry(296,3,1,2)
+        entry(332,3,1,1)
+        entry(334,3,1,4)
+        out.u32(0)
+        repeat(4){out.u16(8)}
+        out.u32(dpi.toLong());out.u32(1)
+        out.u32(dpi.toLong());out.u32(1)
+        val row=IntArray(bitmap.width)
+        for(y in 0 until bitmap.height){
+            bitmap.getPixels(row,0,bitmap.width,0,y,bitmap.width,1)
+            for(color in row){
+                val cmyk=ColorManagement.toCmyk(color)
+                out.u8((cmyk.c*255).toInt());out.u8((cmyk.m*255).toInt())
+                out.u8((cmyk.y*255).toInt());out.u8((cmyk.k*255).toInt())
+            }
         }
         out.flush()
     }
