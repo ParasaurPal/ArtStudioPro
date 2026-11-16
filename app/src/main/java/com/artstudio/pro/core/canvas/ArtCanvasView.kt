@@ -358,6 +358,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             MotionEvent.ACTION_DOWN -> {
                 if (!viewportRect.contains(event.x, event.y)) return false
                 parent?.requestDisallowInterceptTouchEvent(true)
+                previousInputTime = 0L
                 val point = documentPoint(event)
                 dirtyBounds.setEmpty()
                 hasDirtyBounds = false
