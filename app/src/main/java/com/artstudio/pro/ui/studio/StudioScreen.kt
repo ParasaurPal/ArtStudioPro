@@ -909,7 +909,7 @@ fun StudioScreen() {
                         Text("Frame duration", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                         Slider(
                             value = (canvasView?.currentFrameDuration() ?: 100).toFloat(),
-                            onValueChange = { canvasView?.setFrameDuration(it.toInt()) },
+                            onValueChange = { canvasView?.setFrameDuration(it.toInt()); layerRefresh++ },
                             valueRange = 20f..1000f,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                         )
