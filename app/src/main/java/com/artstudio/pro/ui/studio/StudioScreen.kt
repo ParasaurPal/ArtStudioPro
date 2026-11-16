@@ -329,9 +329,14 @@ fun StudioScreen() {
         ActivityResultContracts.CreateDocument("image/svg+xml")
     ) { uri ->
         if (uri != null) runCatching {
-            val bitmap = renderProfiledComposite()
+            val view = canvasView ?: error("The canvas is not ready.")
+            val raw = view.renderRasterOnlyComposite()
+            val bitmap = try { ColorManagement.convertBitmap(raw, ColorProfile.SRGB, documentColorProfile) } finally { raw.recycle() }
             try {
-                val svg = SvgExporter.embedRaster(bitmap)
+                val paths = view.layers.filter { layer ->
+                    layer.isVisible && (layer.groupId?.let { id -> view.layerGroups.firstOrNull { it.id == id }?.isVisible } ?: true)
+                }.flatMap { it.vectorPaths }
+                val svg = SvgExporter.embedRaster(bitmap, VectorRenderer.toSvgElements(paths))
                 context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(svg) }
                     ?: error("Unable to open the selected file.")
             } finally { bitmap.recycle() }
