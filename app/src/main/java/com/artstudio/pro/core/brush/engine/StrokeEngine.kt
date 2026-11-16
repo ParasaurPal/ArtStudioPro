@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import com.artstudio.pro.core.brush.model.BrushDefinition
 import kotlin.math.hypot
+import kotlin.math.abs
 
 data class StrokePoint(val x: Float, val y: Float, val pressure: Float)
 
@@ -16,6 +17,13 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
     private var targetY = 0f
     private var lastPressure = 1f
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val detailPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private var stampIndex = 0
+
+    private fun noise(seed: Float): Float {
+        val value = kotlin.math.sin(seed * 12.9898f + stampIndex * 78.233f) * 43758.5453f
+        return (value - kotlin.math.floor(value)).toFloat()
+    }
 
     fun startStroke(point: StrokePoint, canvas: Canvas) {
         lastX = point.x
@@ -75,9 +83,58 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val diameter = brush.baseSize.coerceAtLeast(1f) *
             (brush.minSizeRatio.coerceIn(0f, 1f) +
                 (1f - brush.minSizeRatio.coerceIn(0f, 1f)) * pressureSize)
-        paint.color = if (eraserMode) Color.WHITE else activeColor
-        paint.alpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
+        val radius = diameter / 2f
+        val flowAlpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
             brush.flow.coerceIn(0f, 1f)).toInt().coerceIn(0, 255)
-        canvas.drawCircle(x, y, diameter / 2f, paint)
+        paint.color = if (eraserMode) Color.WHITE else activeColor
+        paint.alpha = when (brush.medium) {
+            com.artstudio.pro.core.brush.model.BrushMedium.WATERCOLOR -> (flowAlpha * 0.22f).toInt()
+            com.artstudio.pro.core.brush.model.BrushMedium.GRAPHITE -> (flowAlpha * 0.78f).toInt()
+            else -> flowAlpha
+        }
+
+        when {
+            eraserMode -> canvas.drawCircle(x, y, radius, paint)
+            brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.WATERCOLOR -> {
+                // Layered translucent washes with a slightly darker pigment-rich edge.
+                canvas.drawCircle(x, y, radius, paint)
+                detailPaint.color = activeColor
+                detailPaint.alpha = (flowAlpha * 0.18f).toInt().coerceIn(0, 255)
+                detailPaint.style = Paint.Style.STROKE
+                detailPaint.strokeWidth = (diameter * 0.10f).coerceAtLeast(1f)
+                canvas.drawCircle(x, y, radius * 0.88f, detailPaint)
+                detailPaint.style = Paint.Style.FILL
+            }
+            brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.OIL_IMPASTO -> {
+                canvas.drawCircle(x, y, radius, paint)
+                detailPaint.color = activeColor
+                detailPaint.alpha = (flowAlpha * 0.42f).toInt().coerceIn(0, 255)
+                detailPaint.style = Paint.Style.STROKE
+                detailPaint.strokeCap = Paint.Cap.ROUND
+                detailPaint.strokeWidth = (diameter * 0.07f).coerceAtLeast(1f)
+                repeat(3) { i ->
+                    val offset = (i - 1) * radius * 0.28f
+                    canvas.drawLine(x - radius * 0.48f, y + offset, x + radius * 0.48f, y + offset, detailPaint)
+                }
+                detailPaint.style = Paint.Style.FILL
+            }
+            brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.GRAPHITE ||
+                brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.CHARCOAL -> {
+                canvas.drawCircle(x, y, radius, paint)
+                detailPaint.color = activeColor
+                val flecks = if (brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.CHARCOAL) 10 else 5
+                repeat(flecks) { i ->
+                    val angle = noise(x + i * 19.7f) * (Math.PI.toFloat() * 2f)
+                    val distance = noise(y + i * 31.3f) * radius
+                    val px = x + kotlin.math.cos(angle) * distance
+                    val py = y + kotlin.math.sin(angle) * distance
+                    detailPaint.alpha = (flowAlpha * (0.12f + noise(px + py) * 0.28f)).toInt().coerceIn(0, 255)
+                    val dot = (diameter * (0.012f + noise(px - py) * 0.025f)).coerceAtLeast(0.5f)
+                    canvas.drawCircle(px, py, dot, detailPaint)
+                }
+            }
+            else -> canvas.drawCircle(x, y, radius, paint)
+        }
+        stampIndex++
     }
 }
