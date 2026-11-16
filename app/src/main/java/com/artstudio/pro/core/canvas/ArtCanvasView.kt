@@ -287,7 +287,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun deleteFrame(): Boolean {
         if (animationFrames.size <= 1) {
-            layers.forEach { it.clear() }
+            layers.forEach { it.clear(); it.removeMask(); it.vectorPaths.clear() }
             invalidate()
             return false
         }
