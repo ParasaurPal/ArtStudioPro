@@ -536,6 +536,7 @@ fun StudioScreen() {
                         TextButton(onClick = { canvasView?.addVectorRectangle(); layerRefresh++ }) { Text("Vector rect") }
                         TextButton(onClick = { canvasView?.addVectorEllipse(); layerRefresh++ }) { Text("Vector ellipse") }
                         TextButton(onClick = { canvasView?.addVectorLine(); layerRefresh++ }) { Text("Vector line") }
+                        TextButton(onClick = { canvasView?.addComicGrid(2, 2); layerRefresh++ }) { Text("Comic grid") }
                         TextButton(onClick = { showPoseReference = true }) { Text("3D pose") }
                         TextButton(onClick = {
                             val preset = brush.copy(
