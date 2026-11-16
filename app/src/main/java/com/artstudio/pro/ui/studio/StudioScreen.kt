@@ -862,6 +862,7 @@ fun StudioScreen() {
                                             BrushMedium.INK_PEN -> "Clean, solid ink strokes"
                                             BrushMedium.WATERCOLOR -> "Transparent layered washes and darker edges"
                                             BrushMedium.OIL_IMPASTO -> "Opaque paint with raised bristle ridges"
+                                            BrushMedium.SCREENTONE -> "Comic halftone dots and tonal texture"
                                             BrushMedium.PROCEDURAL -> "Smooth general-purpose brush"
                                         },
                                         style = MaterialTheme.typography.labelSmall,
