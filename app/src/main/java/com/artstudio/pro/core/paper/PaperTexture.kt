@@ -34,6 +34,8 @@ object PaperTexture {
 
     fun draw(canvas: Canvas, bounds: RectF, kind: PaperKind, strength: Float = 1f) {
         if (kind == PaperKind.TRANSPARENT) return
+        val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = kind.baseColor }
+        canvas.drawRect(bounds, basePaint)
         val bitmap = tile(kind) ?: return
         val shader = BitmapShader(bitmap, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
