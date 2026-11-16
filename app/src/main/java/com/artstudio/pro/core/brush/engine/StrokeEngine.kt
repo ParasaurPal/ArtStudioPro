@@ -3,11 +3,23 @@ package com.artstudio.pro.core.brush.engine
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Bitmap
+import android.graphics.RectF
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import com.artstudio.pro.core.brush.model.BrushDefinition
+import com.artstudio.pro.core.brush.model.DynamicsSource
+import com.artstudio.pro.core.brush.model.BrushMedium
 import kotlin.math.hypot
-import kotlin.math.abs
 
-data class StrokePoint(val x: Float, val y: Float, val pressure: Float)
+data class StrokePoint(
+    val x: Float,
+    val y: Float,
+    val pressure: Float,
+    val tilt: Float = 0f,
+    val orientation: Float = 0f,
+    val velocity: Float = 0f
+)
 
 class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLACK) {
     var eraserMode: Boolean = false
@@ -16,13 +28,23 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
     private var targetX = 0f
     private var targetY = 0f
     private var lastPressure = 1f
+    private var currentTilt = 0f
+    private var currentOrientation = 0f
+    private var currentVelocity = 0f
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val detailPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val tipPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var stampIndex = 0
 
     private fun noise(seed: Float): Float {
         val value = kotlin.math.sin(seed * 12.9898f + stampIndex * 78.233f) * 43758.5453f
-        return (value - kotlin.math.floor(value)).toFloat()
+        return value - kotlin.math.floor(value)
+    }
+
+    private fun applyPointDynamics(point: StrokePoint) {
+        currentTilt = point.tilt.coerceIn(0f, Math.PI.toFloat())
+        currentOrientation = point.orientation
+        currentVelocity = point.velocity.coerceIn(0f, 1f)
     }
 
     fun startStroke(point: StrokePoint, canvas: Canvas) {
@@ -31,6 +53,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         targetX = point.x
         targetY = point.y
         lastPressure = point.pressure
+        applyPointDynamics(point)
         renderStamp(canvas, point.x, point.y, point.pressure)
     }
 
@@ -38,6 +61,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         targetX = point.x
         targetY = point.y
         lastPressure = point.pressure
+        applyPointDynamics(point)
         val smoothing = brush.streamline.coerceIn(0f, 0.95f)
         val factor = 1f - smoothing
         val currentX = lastX + (point.x - lastX) * factor
@@ -47,27 +71,18 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         lastY = currentY
     }
 
-    /** Flushes the smoothed tail so a stroke ends exactly at the final input point. */
     fun finishStroke(canvas: Canvas) {
         drawSegment(canvas, lastX, lastY, targetX, targetY, lastPressure)
         lastX = targetX
         lastY = targetY
     }
 
-    private fun drawSegment(
-        canvas: Canvas,
-        fromX: Float,
-        fromY: Float,
-        toX: Float,
-        toY: Float,
-        pressure: Float
-    ) {
+    private fun drawSegment(canvas: Canvas, fromX: Float, fromY: Float, toX: Float, toY: Float, pressure: Float) {
         val dx = toX - fromX
         val dy = toY - fromY
         val distance = hypot(dx, dy)
         if (distance <= 0.001f) return
-        val spacing = brush.spacing.coerceIn(0.01f, 2f)
-        val step = (brush.baseSize * spacing).coerceAtLeast(1f)
+        val step = (brush.baseSize * brush.spacing.coerceIn(0.01f, 2f)).coerceAtLeast(1f)
         var travelled = step
         while (travelled < distance) {
             val t = travelled / distance
@@ -79,24 +94,39 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
 
     private fun renderStamp(canvas: Canvas, x: Float, y: Float, pressure: Float) {
         val normalizedPressure = pressure.coerceIn(0f, 1f)
-        val pressureSize = brush.sizeCurve.evaluate(normalizedPressure)
-        val diameter = brush.baseSize.coerceAtLeast(1f) *
-            (brush.minSizeRatio.coerceIn(0f, 1f) +
-                (1f - brush.minSizeRatio.coerceIn(0f, 1f)) * pressureSize)
+        val dynamicsValue = when (brush.sizeSource) {
+            DynamicsSource.PRESSURE -> normalizedPressure
+            DynamicsSource.TILT -> 1f - currentTilt / Math.PI.toFloat()
+            DynamicsSource.VELOCITY -> 1f - currentVelocity
+            DynamicsSource.FIXED -> 1f
+        }.coerceIn(0f, 1f)
+        val sizeFactor = brush.sizeCurve.evaluate(dynamicsValue)
+        val minRatio = brush.minSizeRatio.coerceIn(0f, 1f)
+        val diameter = brush.baseSize.coerceAtLeast(1f) * (minRatio + (1f - minRatio) * sizeFactor)
         val radius = diameter / 2f
-        val flowAlpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) *
-            brush.flow.coerceIn(0f, 1f)).toInt().coerceIn(0, 255)
+        val flowAlpha = (255f * brush.baseOpacity.coerceIn(0f, 1f) * brush.flow.coerceIn(0f, 1f)).toInt().coerceIn(0, 255)
         paint.color = if (eraserMode) Color.WHITE else activeColor
         paint.alpha = when (brush.medium) {
-            com.artstudio.pro.core.brush.model.BrushMedium.WATERCOLOR -> (flowAlpha * 0.22f).toInt()
-            com.artstudio.pro.core.brush.model.BrushMedium.GRAPHITE -> (flowAlpha * 0.78f).toInt()
+            BrushMedium.WATERCOLOR -> (flowAlpha * 0.22f).toInt()
+            BrushMedium.GRAPHITE -> (flowAlpha * 0.78f).toInt()
             else -> flowAlpha
         }
 
+        val customTip: Bitmap? = brush.tipMask
         when {
             eraserMode -> canvas.drawCircle(x, y, radius, paint)
-            brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.WATERCOLOR -> {
-                // Layered translucent washes with a slightly darker pigment-rich edge.
+            customTip != null && !customTip.isRecycled -> {
+                tipPaint.colorFilter = PorterDuffColorFilter(activeColor, PorterDuff.Mode.SRC_IN)
+                tipPaint.alpha = flowAlpha
+                val destination = RectF(x - radius, y - radius, x + radius, y + radius)
+                canvas.save()
+                canvas.rotate(Math.toDegrees(currentOrientation.toDouble()).toFloat(), x, y)
+                canvas.drawBitmap(customTip, null, destination, tipPaint)
+                canvas.restore()
+                tipPaint.colorFilter = null
+                tipPaint.alpha = 255
+            }
+            brush.medium == BrushMedium.WATERCOLOR -> {
                 canvas.drawCircle(x, y, radius, paint)
                 detailPaint.color = activeColor
                 detailPaint.alpha = (flowAlpha * 0.18f).toInt().coerceIn(0, 255)
@@ -105,7 +135,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 canvas.drawCircle(x, y, radius * 0.88f, detailPaint)
                 detailPaint.style = Paint.Style.FILL
             }
-            brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.OIL_IMPASTO -> {
+            brush.medium == BrushMedium.OIL_IMPASTO -> {
                 canvas.drawCircle(x, y, radius, paint)
                 detailPaint.color = activeColor
                 detailPaint.alpha = (flowAlpha * 0.42f).toInt().coerceIn(0, 255)
@@ -118,11 +148,10 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 }
                 detailPaint.style = Paint.Style.FILL
             }
-            brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.GRAPHITE ||
-                brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.CHARCOAL -> {
+            brush.medium == BrushMedium.GRAPHITE || brush.medium == BrushMedium.CHARCOAL -> {
                 canvas.drawCircle(x, y, radius, paint)
                 detailPaint.color = activeColor
-                val flecks = if (brush.medium == com.artstudio.pro.core.brush.model.BrushMedium.CHARCOAL) 10 else 5
+                val flecks = if (brush.medium == BrushMedium.CHARCOAL) 10 else 5
                 repeat(flecks) { i ->
                     val angle = noise(x + i * 19.7f) * (Math.PI.toFloat() * 2f)
                     val distance = noise(y + i * 31.3f) * radius
