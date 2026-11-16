@@ -36,7 +36,13 @@ enum class BlendMode(
     HUE(null, android.graphics.BlendMode.HUE),
     SATURATION(null, android.graphics.BlendMode.SATURATION),
     COLOR(null, android.graphics.BlendMode.COLOR),
-    LUMINOSITY(null, android.graphics.BlendMode.LUMINOSITY);
+    LUMINOSITY(null, android.graphics.BlendMode.LUMINOSITY),
+    GRAIN_MERGE(null, android.graphics.BlendMode.OVERLAY),
+    GRAIN_EXTRACT(null, android.graphics.BlendMode.SOFT_LIGHT),
+    REFLECT(null, android.graphics.BlendMode.COLOR_DODGE),
+    GLOW(null, android.graphics.BlendMode.COLOR_DODGE),
+    PHOENIX(null, android.graphics.BlendMode.EXCLUSION),
+    NEGATION(null, android.graphics.BlendMode.DIFFERENCE);
 
     fun applyTo(paint: Paint) {
         if (android.os.Build.VERSION.SDK_INT >= 29 && nativeMode != null) {
