@@ -491,6 +491,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun maskActiveLayerToSelection() {
+        if (activeLayer.isLocked) return
         val rect = selectionRect ?: selectionPath?.let { path -> RectF().also { path.computeBounds(it, true) } } ?: return
         val target = activeLayer
         val mask = target.ensureMask()
@@ -517,6 +518,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun toggleActiveLayerMaskEditing() {
+        if (activeLayer.isLocked) return
         if (activeLayer.maskBitmap == null) activeLayer.ensureMask()
         isEditingLayerMask = !isEditingLayerMask
         invalidate()
@@ -934,6 +936,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun createFilterLayer(filter: ImageFilter, amount: Float = 1f): Boolean {
+        if (activeLayer.isLocked) return false
         if (layers.size >= maxLayerCount) return false
         val sourceLayer = activeLayer
         val source = sourceLayer.renderMaskedBitmap().also { VectorRenderer.draw(Canvas(it), sourceLayer.vectorPaths) }
