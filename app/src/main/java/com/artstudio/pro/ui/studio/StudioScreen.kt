@@ -55,7 +55,7 @@ fun StudioScreen() {
     var brushMedium by remember { mutableStateOf(BrushMedium.INK_PEN) }
     var dynamicsSource by remember { mutableStateOf(DynamicsSource.PRESSURE) }
     var opacityDynamicsSource by remember { mutableStateOf(DynamicsSource.PRESSURE) }
-    var tipMask by remember { mutableStateOf<Bitmap?>(null) }
+    var tipMask by remember { mutableStateOf(BitmapFactory.decodeFile(context.getFileStreamPath("custom_brush_tip.png").absolutePath)) }
     var paperKind by remember { mutableStateOf(PaperKind.SMOOTH) }
     var paperStrength by remember { mutableFloatStateOf(1f) }
     var showNewDocument by remember { mutableStateOf(false) }
@@ -148,6 +148,9 @@ fun StudioScreen() {
                     pixels[i] = (alpha shl 24) or 0x00FFFFFF
                 }
                 mask.setPixels(pixels, 0, mask.width, 0, 0, mask.width, mask.height)
+                context.openFileOutput("custom_brush_tip.png", android.content.Context.MODE_PRIVATE).use { output ->
+                    check(mask.compress(Bitmap.CompressFormat.PNG, 100, output)) { "Unable to save the brush tip." }
+                }
                 if (scaled !== decoded) scaled.recycle()
                 mask
             } finally {
@@ -222,6 +225,13 @@ fun StudioScreen() {
                         TextButton(onClick = { showPaperPicker = true }) { Text("Paper: ${paperKind.title}") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = { importBrushTip.launch(arrayOf("image/*")) }) { Text(if (tipMask == null) "Import tip" else "Change tip") }
+                        if (tipMask != null) {
+                            TextButton(onClick = {
+                                tipMask?.takeIf { !it.isRecycled }?.recycle()
+                                tipMask = null
+                                context.deleteFile("custom_brush_tip.png")
+                            }) { Text("Clear tip") }
+                        }
                         TextButton(onClick = {
                             dynamicsSource = DynamicsSource.values()[(DynamicsSource.values().indexOf(dynamicsSource) + 1) % DynamicsSource.values().size]
                         }) { Text("Size: ${dynamicsSource.name.lowercase()}") }
