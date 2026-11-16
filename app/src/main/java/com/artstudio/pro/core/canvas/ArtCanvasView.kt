@@ -214,7 +214,12 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             contrast = source.contrast,
             saturation = source.saturation,
             blendMode = source.blendMode
-        ).also { if (copyPixels) it.canvas.drawBitmap(source.bitmap, 0f, 0f, null) }
+        ).also {
+            if (copyPixels) it.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
+            it.vectorPaths.addAll(source.vectorPaths)
+            source.maskBitmap?.let { mask -> it.createMask(false).also { targetMask -> Canvas(targetMask).drawBitmap(mask, 0f, 0f, null) } }
+            it.maskEnabled = source.maskEnabled
+        }
     }
 
     fun selectFrame(index: Int) {
@@ -674,6 +679,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             blendMode = source.blendMode
         )
         copy.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
+        copy.vectorPaths.addAll(source.vectorPaths)
+        source.maskBitmap?.let { mask -> copy.createMask(false).also { Canvas(it).drawBitmap(mask, 0f, 0f, null) } }
+        copy.maskEnabled = source.maskEnabled
         layers.add(activeLayerIndex + 1, copy)
         activeLayerIndex++
         invalidate()
