@@ -78,6 +78,9 @@ object ProjectArchive {
         require(layers.all { it.width == width && it.height == height }) {
             "All layers must match the project dimensions."
         }
+        require(width.toLong() * height.toLong() * layers.size.toLong() <= 64_000_000L) {
+            "This project exceeds the safe mobile memory budget. Merge layers or reduce the canvas size before saving."
+        }
 
         val manifest = ProjectManifest(
             width = width,
@@ -149,6 +152,9 @@ object ProjectArchive {
         }
         require(manifest.layers.isNotEmpty() && manifest.layers.size <= 512) {
             "The project layer count is invalid."
+        }
+        require(manifest.width.toLong() * manifest.height.toLong() * manifest.layers.size.toLong() <= 64_000_000L) {
+            "This project exceeds the safe mobile memory budget."
         }
 
         val loadedLayers = manifest.layers.map { metadata ->
