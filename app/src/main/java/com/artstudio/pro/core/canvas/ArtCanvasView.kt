@@ -80,6 +80,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var gridSpacing: Int = 64
         private set
+    var snapToGrid: Boolean = false
+        private set
     var symmetryMode: SymmetryMode = SymmetryMode.NONE
         private set
     var perspectiveMode: PerspectiveMode = PerspectiveMode.OFF
@@ -726,6 +728,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         }
     }
 
+    fun setSnapToGrid(enabled:Boolean) { snapToGrid=enabled; invalidate() }
+
     fun setGrid(enabled: Boolean, spacing: Int = gridSpacing) {
         showGrid = enabled
         gridSpacing = spacing.coerceIn(8, 1024)
@@ -1369,8 +1373,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private fun documentPoint(event: MotionEvent): StrokePoint {
         val point = floatArrayOf(event.x, event.y)
         viewToDocument.mapPoints(point)
-        val documentX = point[0].coerceIn(0f, documentWidth.toFloat())
-        val documentY = point[1].coerceIn(0f, documentHeight.toFloat())
+        val rawX = point[0].coerceIn(0f, documentWidth.toFloat())
+        val rawY = point[1].coerceIn(0f, documentHeight.toFloat())
+        val documentX = if (snapToGrid) (kotlin.math.round(rawX / gridSpacing) * gridSpacing).coerceIn(0f, documentWidth.toFloat()) else rawX
+        val documentY = if (snapToGrid) (kotlin.math.round(rawY / gridSpacing) * gridSpacing).coerceIn(0f, documentHeight.toFloat()) else rawY
         val stylus = event.getToolType(event.actionIndex.coerceAtLeast(0)) == MotionEvent.TOOL_TYPE_STYLUS
         val pressure = if (stylus) event.pressure.coerceIn(0f, 1f).takeIf { it > 0f } ?: 0.5f else 1f
         val elapsed = (event.eventTime - previousInputTime).coerceAtLeast(1L).toFloat()
