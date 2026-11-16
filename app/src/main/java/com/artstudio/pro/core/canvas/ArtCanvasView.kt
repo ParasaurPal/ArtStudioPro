@@ -155,12 +155,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         canvas.clipRect(viewportRect)
         layers.filter { it.isVisible }.forEach { layer ->
             layerPaint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-            layerPaint.xfermode = when (layer.blendMode) {
-                BlendMode.MULTIPLY -> PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                BlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                BlendMode.OVERLAY -> PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                BlendMode.NORMAL -> null
-            }
+            layerPaint.xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
             canvas.drawBitmap(layer.bitmap, null, viewportRect, layerPaint)
         }
         layerPaint.xfermode = null
@@ -228,12 +223,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val lower = layers[activeLayerIndex - 1]
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
             alpha = (upper.opacity.coerceIn(0f, 1f) * 255f).toInt()
-            xfermode = when (upper.blendMode) {
-                BlendMode.MULTIPLY -> PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                BlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                BlendMode.OVERLAY -> PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                BlendMode.NORMAL -> null
-            }
+            xfermode = upper.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
         }
         lower.canvas.drawBitmap(upper.bitmap, 0f, 0f, paint)
         lower.opacity = 1f
@@ -247,45 +237,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         layers.filter { it.isVisible }.forEach { layer ->
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-                xfermode = when (layer.blendMode) {
-                    BlendMode.MULTIPLY -> PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                    BlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                    BlendMode.OVERLAY -> PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                    BlendMode.NORMAL -> null
-                }
-            }
-            merged.canvas.drawBitmap(layer.bitmap, 0f, 0f, paint)
-        }
-        layers.clear()
-        layers.add(merged)
-        activeLayerIndex = 0
-        invalidate()
-    }
-
-    fun replaceLayers(newLayers: List<ArtLayer>) {
-        require(newLayers.isNotEmpty())
-        require(newLayers.all { it.width == documentWidth && it.height == documentHeight })
-        layers.clear()
-        layers.addAll(newLayers)
-        activeLayerIndex = layers.lastIndex
-        clearHistory()
-        invalidate()
-    }
-
-    /** Renders visible layers into a new export bitmap without changing the document. */
-    fun renderComposite(backgroundColor: Int? = null): Bitmap {
-        val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
-        val outputCanvas = Canvas(output)
-        if (backgroundColor != null) outputCanvas.drawColor(backgroundColor)
-        else PaperTexture.draw(outputCanvas, RectF(0f, 0f, documentWidth.toFloat(), documentHeight.toFloat()), paperKind, paperStrength)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        layers.filter { it.isVisible }.forEach { layer ->
-            paint.alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-            paint.xfermode = when (layer.blendMode) {
-                BlendMode.MULTIPLY -> PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                BlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                BlendMode.OVERLAY -> PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                BlendMode.NORMAL -> null
+                xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
             }
             outputCanvas.drawBitmap(layer.bitmap, 0f, 0f, paint)
         }
@@ -329,13 +281,20 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         strokeEngine?.finishStroke(activeCanvas)
         val targetLayer = activeLayer
         val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds) else emptyList()
-        if (strokeEngine?.eraserMode == true) {
-            val erasePaint = Paint().apply {
-                xfermode = android.graphics.PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+        if (targetLayer.isAlphaLocked) {
+            if (strokeEngine?.eraserMode != true) {
+                val alphaLockPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP)
+                }
+                targetLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, alphaLockPaint)
             }
-            activeLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, erasePaint)
+        } else if (strokeEngine?.eraserMode == true) {
+            val erasePaint = Paint().apply {
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+            }
+            targetLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, erasePaint)
         } else {
-            activeLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, null)
+            targetLayer.canvas.drawBitmap(activeBitmap, 0f, 0f, null)
         }
         activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
         if (before.isNotEmpty()) {
