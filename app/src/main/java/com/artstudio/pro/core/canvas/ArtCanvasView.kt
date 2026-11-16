@@ -224,8 +224,16 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
-    fun addBlankFrame(): Boolean {
+    private fun canAddAnimationFrame(): Boolean {
         if (animationFrames.size >= 120) return false
+        val existingLayerCount = animationFrames.sumOf { it.layers.size.toLong() }
+        val addedLayerCount = layers.size.toLong()
+        return documentWidth.toLong() * documentHeight.toLong() *
+            (existingLayerCount + addedLayerCount) <= 64_000_000L
+    }
+
+    fun addBlankFrame(): Boolean {
+        if (!canAddAnimationFrame()) return false
         val blank = layers.map { cloneLayer(it, false) }.toMutableList()
         animationFrames.add(currentFrameIndex + 1, AnimationFrame(100, blank))
         selectFrame(currentFrameIndex + 1)
@@ -233,7 +241,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun duplicateFrame(): Boolean {
-        if (animationFrames.size >= 120) return false
+        if (!canAddAnimationFrame()) return false
         val duplicate = layers.map { cloneLayer(it, true) }.toMutableList()
         animationFrames.add(currentFrameIndex + 1, AnimationFrame(
             animationFrames[currentFrameIndex].durationMs, duplicate
