@@ -1,5 +1,6 @@
 package com.artstudio.pro.ui.studio
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color as AColor
 import android.widget.Toast
@@ -25,6 +26,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.model.BrushDefinition
 import com.artstudio.pro.core.brush.model.BrushMedium
+import com.artstudio.pro.core.brush.model.DynamicsSource
 import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.project.ProjectArchive
@@ -51,6 +53,8 @@ fun StudioScreen() {
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
     var brushMedium by remember { mutableStateOf(BrushMedium.INK_PEN) }
+    var dynamicsSource by remember { mutableStateOf(DynamicsSource.PRESSURE) }
+    var tipMask by remember { mutableStateOf<Bitmap?>(null) }
     var paperKind by remember { mutableStateOf(PaperKind.SMOOTH) }
     var paperStrength by remember { mutableFloatStateOf(1f) }
     var showNewDocument by remember { mutableStateOf(false) }
@@ -119,6 +123,44 @@ fun StudioScreen() {
         }
     }
 
+    val importBrushTip = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) runCatching {
+            val decoded = context.contentResolver.openInputStream(uri)?.use(BitmapFactory::decodeStream)
+                ?: error("Unable to read the brush tip image.")
+            try {
+                val scale = minOf(1f, 512f / maxOf(decoded.width, decoded.height).toFloat())
+                val scaled = if (scale < 1f) Bitmap.createScaledBitmap(
+                    decoded, (decoded.width * scale).toInt().coerceAtLeast(1),
+                    (decoded.height * scale).toInt().coerceAtLeast(1), true
+                ) else decoded
+                val mask = Bitmap.createBitmap(scaled.width, scaled.height, Bitmap.Config.ARGB_8888)
+                val pixels = IntArray(scaled.width * scaled.height)
+                scaled.getPixels(pixels, 0, scaled.width, 0, 0, scaled.width, scaled.height)
+                for (i in pixels.indices) {
+                    val color = pixels[i]
+                    val luminance = (android.graphics.Color.red(color) * 299 +
+                        android.graphics.Color.green(color) * 587 +
+                        android.graphics.Color.blue(color) * 114) / 1000
+                    val alpha = android.graphics.Color.alpha(color) * (255 - luminance) / 255
+                    pixels[i] = (alpha shl 24) or 0x00FFFFFF
+                }
+                mask.setPixels(pixels, 0, mask.width, 0, 0, mask.width, mask.height)
+                if (scaled !== decoded) scaled.recycle()
+                mask
+            } finally {
+                decoded.recycle()
+            }
+        }.onSuccess { mask ->
+            tipMask?.takeIf { it !== mask && !it.isRecycled }?.recycle()
+            tipMask = mask
+            Toast.makeText(context, "Custom brush tip loaded", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            Toast.makeText(context, "Brush tip import failed: ${it.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     val importImage = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -178,6 +220,10 @@ fun StudioScreen() {
                         }) { Text(if (eraserMode) "Eraser on" else "Eraser") }
                         TextButton(onClick = { showPaperPicker = true }) { Text("Paper: ${paperKind.title}") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
+                        TextButton(onClick = { importBrushTip.launch(arrayOf("image/*")) }) { Text(if (tipMask == null) "Import tip" else "Change tip") }
+                        TextButton(onClick = {
+                            dynamicsSource = DynamicsSource.values()[(DynamicsSource.values().indexOf(dynamicsSource) + 1) % DynamicsSource.values().size]
+                        }) { Text("Size: ${dynamicsSource.name.lowercase()}") }
                         TextButton(onClick = {
                             canvasView?.addLayer()
                             layerRefresh++
@@ -248,6 +294,8 @@ fun StudioScreen() {
                     },
                     update = { view ->
                         brush.baseSize = brushSize
+                        brush.sizeSource = dynamicsSource
+                        brush.tipMask = tipMask
                         view.strokeEngine?.brush = brush
                         view.strokeEngine?.activeColor = activeColor
                         view.strokeEngine?.eraserMode = eraserMode
