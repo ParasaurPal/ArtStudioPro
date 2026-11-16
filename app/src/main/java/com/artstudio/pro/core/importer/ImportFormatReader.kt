@@ -137,6 +137,40 @@ object ImportFormatReader {
                         }
                     }
                 }
+                else if(tag=="path") {
+                    val d=parser.getAttributeValue(null,"d").orEmpty()
+                    val fillValue=parser.getAttributeValue(null,"fill") ?: "black"
+                    val strokeValue=parser.getAttributeValue(null,"stroke") ?: "none"
+                    val fill=runCatching{Color.parseColor(fillValue)}.getOrDefault(Color.BLACK)
+                    val stroke=runCatching{Color.parseColor(strokeValue)}.getOrDefault(Color.TRANSPARENT)
+                    val strokeWidth=attr("stroke-width",1f)
+                    val opacity=attr("opacity",1f).coerceIn(0f,1f)
+                    val tokens=Regex("[MLCZ]|[-+]?(?:[0-9]*\\.)?[0-9]+(?:[eE][-+]?[0-9]+)?").findAll(d).map{it.value}.toList()
+                    val vectorPath=Path()
+                    var cursor=0
+                    var command='M'
+                    fun number():Float=tokens.getOrNull(cursor++)?.toFloatOrNull()?:0f
+                    while(cursor<tokens.size){
+                        val token=tokens[cursor]
+                        if(token.length==1&&token[0].isLetter()){command=token[0];cursor++;if(command=='Z'||command=='z'){vectorPath.close();continue}}
+                        when(command){
+                            'M','m'->{val px=number();val py=number();vectorPath.moveTo(px,py);command=if(command=='m')'l' else 'L'}
+                            'L','l'->{vectorPath.lineTo(number(),number())}
+                            'C','c'->{val x1=number();val y1=number();val x2=number();val y2=number();val x=number();val y=number();vectorPath.cubicTo(x1,y1,x2,y2,x,y)}
+                            else->{cursor++}
+                        }
+                    }
+                    elements += { canvas ->
+                        if(fillValue!="none"){
+                            val fp=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=fill;alpha=(Color.alpha(fill)*opacity).toInt();style=Paint.Style.FILL}
+                            canvas.drawPath(vectorPath,fp)
+                        }
+                        if(stroke!=Color.TRANSPARENT){
+                            val sp=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=stroke;alpha=(Color.alpha(stroke)*opacity).toInt();style=Paint.Style.STROKE;this.strokeWidth=strokeWidth;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
+                            canvas.drawPath(vectorPath,sp)
+                        }
+                    }
+                }
                 else if(tag=="rect"||tag=="circle"||tag=="ellipse"||tag=="line"){
                     val x=attr("x");val y=attr("y");val w=attr("width");val h=attr("height")
                     val cx=attr("cx");val cy=attr("cy");val rx=attr("rx",attr("r"));val ry=attr("ry",attr("r"))
