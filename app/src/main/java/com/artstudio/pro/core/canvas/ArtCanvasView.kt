@@ -409,7 +409,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun maskActiveLayerToSelection() {
-        val rect = selectionRect ?: selectionPath?.let { Path().also { path -> path.addPath(it) }.let { path -> RectF().also(path::computeBounds) } } ?: return
+        val rect = selectionRect ?: selectionPath?.let { path -> RectF().also { path.computeBounds(it, true) } } ?: return
         val target = activeLayer
         val mask = target.ensureMask()
         val before = captureTiles(target, rect, mask)
@@ -1465,7 +1465,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                         val point = documentPoint(event)
                         if (selectionMode == SelectionMode.LASSO) {
                             selectionPath?.apply { lineTo(point.x, point.y); close() }
-                            selectionPath?.let { path -> selectionRect = RectF().also(path::computeBounds) }
+                            selectionPath?.let { path -> selectionRect = RectF().also { path.computeBounds(it, true) } }
                         } else updateSelection(point)
                         selectionIsEllipse = selectionMode == SelectionMode.ELLIPSE
                         selectionMode = SelectionMode.NONE
