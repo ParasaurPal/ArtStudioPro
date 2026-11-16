@@ -138,7 +138,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     })
 
     private data class TileState(val x: Int, val y: Int, val bitmap: Bitmap)
-    private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>)
+    private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>, val isMask: Boolean = false)
     private val undoHistory = ArrayDeque<StrokeChange>()
     private val redoHistory = ArrayDeque<StrokeChange>()
     private val dirtyBounds = RectF()
@@ -149,7 +149,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     val canUndo: Boolean get() = undoHistory.isNotEmpty()
     val canRedo: Boolean get() = redoHistory.isNotEmpty()
 
-    private fun captureTiles(layer: ArtLayer, bounds: RectF): List<TileState> {
+    private fun captureTiles(layer: ArtLayer, bounds: RectF, source: Bitmap = layer.bitmap): List<TileState> {
         val dirty = Rect()
         bounds.roundOut(dirty)
         val left = (dirty.left.coerceAtLeast(0) / undoTileSize) * undoTileSize
@@ -163,7 +163,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             val tileBottom = (y + undoTileSize).coerceAtMost(documentHeight)
             while (x < right) {
                 val tileRight = (x + undoTileSize).coerceAtMost(documentWidth)
-                result += TileState(x, y, Bitmap.createBitmap(layer.bitmap, x, y, tileRight - x, tileBottom - y))
+                result += TileState(x, y, Bitmap.createBitmap(source, x, y, tileRight - x, tileBottom - y))
                 x += undoTileSize
             }
             y += undoTileSize
@@ -171,9 +171,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         return result
     }
 
-    private fun restoreTiles(layer: ArtLayer, tiles: List<TileState>) {
+    private fun restoreTiles(layer: ArtLayer, tiles: List<TileState>, destination: Bitmap = layer.bitmap) {
         val paint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC) }
-        tiles.forEach { tile -> layer.canvas.drawBitmap(tile.bitmap, tile.x.toFloat(), tile.y.toFloat(), paint) }
+        tiles.forEach { tile -> Canvas(destination).drawBitmap(tile.bitmap, tile.x.toFloat(), tile.y.toFloat(), paint) }
     }
 
     private fun releaseChange(change: StrokeChange) {
@@ -193,7 +193,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val change = undoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
-        restoreTiles(layer, change.before)
+        restoreTiles(layer, change.before, if (change.isMask) layer.ensureMask() else layer.bitmap)
         redoHistory.addLast(change)
         invalidate()
     }
@@ -202,7 +202,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val change = redoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
-        restoreTiles(layer, change.after)
+        restoreTiles(layer, change.after, if (change.isMask) layer.ensureMask() else layer.bitmap)
         undoHistory.addLast(change)
         invalidate()
     }
@@ -393,21 +393,22 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val rect = selectionRect ?: return
         val target = activeLayer
         val before = captureTiles(target, rect)
+        val mask = target.ensureMask()
+        val before = captureTiles(target, rect, mask)
         val selectionMask = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
         val maskCanvas = Canvas(selectionMask)
         val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
         if (selectionIsEllipse) maskCanvas.drawOval(rect, maskPaint)
         else maskCanvas.drawRect(rect, maskPaint)
-        val existing = target.maskBitmap
-        if (existing == null) {
-            val newMask = target.createMask(fillWhite = false)
-            Canvas(newMask).drawBitmap(selectionMask, 0f, 0f, null)
-        } else {
-            Canvas(existing).drawBitmap(selectionMask, 0f, 0f, Paint().apply {
-                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-            })
-        }
+        Canvas(mask).drawBitmap(selectionMask, 0f, 0f, Paint().apply {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+        })
         selectionMask.recycle()
+        val after = captureTiles(target, rect, mask)
+        redoHistory.forEach(::releaseChange)
+        redoHistory.clear()
+        undoHistory.addLast(StrokeChange(target.id, before, after, true))
+        while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
         invalidate()
     }
 
@@ -1073,7 +1074,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         mirrorSaveCounts.forEach { (mirrorCanvas, saveCount) -> mirrorCanvas.restoreToCount(saveCount) }
         mirrorSaveCounts.clear()
         val targetLayer = activeLayer
-        val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds) else emptyList()
+        val historyBitmap = if (isEditingLayerMask) targetLayer.ensureMask() else targetLayer.bitmap
+        val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds, historyBitmap) else emptyList()
         if (isEditingLayerMask) {
             val mask = targetLayer.ensureMask()
             val maskCanvas = Canvas(mask)
@@ -1108,10 +1110,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         activeCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
         symmetryEngines.clear()
         if (before.isNotEmpty()) {
-            val after = captureTiles(targetLayer, dirtyBounds)
+            val after = captureTiles(targetLayer, dirtyBounds, historyBitmap)
             redoHistory.forEach(::releaseChange)
             redoHistory.clear()
-            undoHistory.addLast(StrokeChange(targetLayer.id, before, after))
+            undoHistory.addLast(StrokeChange(targetLayer.id, before, after, isEditingLayerMask))
             while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
         }
         dirtyBounds.setEmpty()
