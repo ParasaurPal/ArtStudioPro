@@ -39,6 +39,7 @@ import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
 import com.artstudio.pro.core.paper.PaperKind
+import com.artstudio.pro.core.paint.PigmentMixer
 import com.artstudio.pro.core.filters.ImageFilter
 import com.artstudio.pro.core.color.ColorProfile
 import com.artstudio.pro.core.color.ColorManagement
@@ -88,6 +89,10 @@ fun StudioScreen() {
     var pendingFrameIndex by remember { mutableIntStateOf(0) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
+    var showPigmentMixer by remember { mutableStateOf(false) }
+    var mixColorA by remember { mutableIntStateOf(AColor.RED) }
+    var mixColorB by remember { mutableIntStateOf(AColor.BLUE) }
+    var mixRatio by remember { mutableFloatStateOf(.5f) }
     var customColorHex by remember { mutableStateOf("#000000") }
     var showRenameLayer by remember { mutableStateOf(false) }
     var showTextContentDialog by remember { mutableStateOf(false) }
@@ -582,6 +587,7 @@ fun StudioScreen() {
                         }) { Text("Text content") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = { showFilterPicker = true }) { Text("Filters") }
+                        TextButton(onClick = { mixColorA = activeColor; showPigmentMixer = true }) { Text("Pigment mixer") }
                         TextButton(onClick = { canvasView?.addVectorRectangle(); layerRefresh++ }) { Text("Vector rect") }
                         TextButton(onClick = { canvasView?.addVectorEllipse(); layerRefresh++ }) { Text("Vector ellipse") }
                         TextButton(onClick = { canvasView?.addVectorLine(); layerRefresh++ }) { Text("Vector line") }
@@ -1050,6 +1056,46 @@ fun StudioScreen() {
             confirmButton = {
                 TextButton(onClick = { showBrushLibrary = false }) { Text("Close") }
             }
+        )
+    }
+
+    if (showPigmentMixer) {
+        val mixedPigment = PigmentMixer.mixPigments(mixColorA, mixColorB, mixRatio)
+        AlertDialog(
+            onDismissRequest = { showPigmentMixer = false },
+            title = { Text("Traditional pigment mixer") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Pigment A")
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        studioPalette.forEach { color ->
+                            Surface(
+                                color = Color(color), modifier = Modifier.size(28.dp).clickable { mixColorA = color },
+                                shape = MaterialTheme.shapes.small,
+                                border = androidx.compose.foundation.BorderStroke(if (mixColorA == color) 3.dp else 1.dp, Color.White)
+                            ) {}
+                        }
+                    }
+                    Text("Pigment B")
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        studioPalette.forEach { color ->
+                            Surface(
+                                color = Color(color), modifier = Modifier.size(28.dp).clickable { mixColorB = color },
+                                shape = MaterialTheme.shapes.small,
+                                border = androidx.compose.foundation.BorderStroke(if (mixColorB == color) 3.dp else 1.dp, Color.White)
+                            ) {}
+                        }
+                    }
+                    Text("Pigment B ratio · ${(mixRatio * 100).toInt()}%")
+                    Slider(value = mixRatio, onValueChange = { mixRatio = it }, valueRange = 0f..1f)
+                    Surface(color = Color(mixedPigment), modifier = Modifier.fillMaxWidth().height(56.dp), shape = MaterialTheme.shapes.medium) {}
+                    Text("Subtractive pigment approximation using a reflectance model.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { activeColor = mixedPigment; showPigmentMixer = false }) { Text("Use mixed color") }
+            },
+            dismissButton = { TextButton(onClick = { showPigmentMixer = false }) { Text("Cancel") } }
         )
     }
 
