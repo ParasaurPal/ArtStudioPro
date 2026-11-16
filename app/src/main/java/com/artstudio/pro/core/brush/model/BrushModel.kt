@@ -27,6 +27,7 @@ data class BrushDefinition(
     var spacing: Float = 0.08f,
     var streamline: Float = 0.65f,
     var sizeSource: DynamicsSource = DynamicsSource.PRESSURE,
+    var opacitySource: DynamicsSource = DynamicsSource.PRESSURE,
     val sizeCurve: DynamicsCurve = DynamicsCurve(),
     @Transient var tipMask: Bitmap? = null
 )
