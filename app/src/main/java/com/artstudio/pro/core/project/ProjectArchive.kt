@@ -7,6 +7,7 @@ import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.AnimationFrame
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.paper.PaperKind
+import com.artstudio.pro.core.color.ColorProfile
 import com.artstudio.pro.core.vector.VectorPath
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -38,7 +39,8 @@ object ProjectArchive {
         val paperStrength: Float = 1f,
         val dpi: Int = 300,
         val frames: List<FrameManifest> = emptyList(),
-        val currentFrameIndex: Int = 0
+        val currentFrameIndex: Int = 0,
+        val colorProfile: String = ColorProfile.SRGB.name
     )
 
     @Serializable
@@ -72,7 +74,8 @@ object ProjectArchive {
         val paperStrength: Float = 1f,
         val dpi: Int = 300,
         val frames: List<AnimationFrame> = emptyList(),
-        val currentFrameIndex: Int = 0
+        val currentFrameIndex: Int = 0,
+        val colorProfile: ColorProfile = ColorProfile.SRGB
     )
 
     private fun layerManifest(layer: ArtLayer, file: String) = LayerManifest(
@@ -115,7 +118,8 @@ object ProjectArchive {
         paperStrength: Float = 1f,
         dpi: Int = 300,
         frames: List<AnimationFrame> = emptyList(),
-        currentFrameIndex: Int = 0
+        currentFrameIndex: Int = 0,
+        colorProfile: ColorProfile = ColorProfile.SRGB
     ) {
         require(width > 0 && height > 0) { "Project dimensions must be positive." }
         require(layers.isNotEmpty()) { "A project must contain at least one layer." }
@@ -149,7 +153,8 @@ object ProjectArchive {
             dpi = dpi.coerceIn(36, 2400),
             layers = frameManifests[selectedIndex].layers,
             frames = frameManifests,
-            currentFrameIndex = selectedIndex
+            currentFrameIndex = selectedIndex,
+            colorProfile = colorProfile.name
         )
 
         ZipOutputStream(output.buffered()).use { zip ->
@@ -259,7 +264,8 @@ object ProjectArchive {
             paperStrength = manifest.paperStrength.coerceIn(0f, 1f),
             dpi = manifest.dpi.coerceIn(36, 2400),
             frames = loadedFrames,
-            currentFrameIndex = selectedIndex
+            currentFrameIndex = selectedIndex,
+            colorProfile = runCatching { ColorProfile.valueOf(manifest.colorProfile) }.getOrDefault(ColorProfile.SRGB)
         )
     }
 }
