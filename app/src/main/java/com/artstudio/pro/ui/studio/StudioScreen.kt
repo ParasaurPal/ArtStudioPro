@@ -46,6 +46,7 @@ import com.artstudio.pro.core.color.ColorProfile
 import com.artstudio.pro.core.color.ColorManagement
 import com.artstudio.pro.core.export.RasterFormatWriter
 import com.artstudio.pro.core.export.GifAnimationWriter
+import com.artstudio.pro.core.export.SvgExporter
 import com.artstudio.pro.core.vector.VectorRenderer
 import com.artstudio.pro.core.print.PrintProduction
 import com.artstudio.pro.core.print.PrintSettings
@@ -289,10 +290,12 @@ fun StudioScreen() {
         ActivityResultContracts.CreateDocument("image/svg+xml")
     ) { uri ->
         if (uri != null) runCatching {
-            val paths = canvasView?.layers?.flatMap { it.vectorPaths } ?: emptyList()
-            val svg = VectorRenderer.toSvg(paths,documentWidth,documentHeight)
-            context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(svg) }
-                ?: error("Unable to open the selected file.")
+            val bitmap = renderProfiledComposite()
+            try {
+                val svg = SvgExporter.embedRaster(bitmap)
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(svg) }
+                    ?: error("Unable to open the selected file.")
+            } finally { bitmap.recycle() }
         }.onSuccess { Toast.makeText(context,"Vector SVG exported",Toast.LENGTH_SHORT).show() }
             .onFailure { Toast.makeText(context,"SVG export failed: ${it.message}",Toast.LENGTH_LONG).show() }
     }
