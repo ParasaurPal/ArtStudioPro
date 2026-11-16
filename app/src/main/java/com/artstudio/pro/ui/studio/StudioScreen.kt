@@ -42,6 +42,7 @@ import com.artstudio.pro.core.filters.ImageFilter
 import com.artstudio.pro.core.color.ColorProfile
 import com.artstudio.pro.core.color.ColorManagement
 import com.artstudio.pro.core.export.RasterFormatWriter
+import com.artstudio.pro.core.export.GifAnimationWriter
 import com.artstudio.pro.core.vector.VectorRenderer
 import com.artstudio.pro.core.print.PrintProduction
 import com.artstudio.pro.core.print.PrintSettings
@@ -212,6 +213,36 @@ fun StudioScreen() {
             } finally { sheet.recycle() }
         }.onSuccess { Toast.makeText(context, "Animation sprite sheet exported", Toast.LENGTH_SHORT).show() }
             .onFailure { Toast.makeText(context, "Sprite sheet export failed: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
+    val exportGif = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/gif")
+    ) { uri ->
+        if (uri != null) runCatching {
+            val view = canvasView ?: error("The canvas is not ready.")
+            val frames = view.animationFramesSnapshot()
+            val scale = minOf(
+                1f,
+                kotlin.math.sqrt(12_000_000f / (documentWidth.toFloat() * documentHeight * frames.size)),
+                2000f / maxOf(documentWidth, documentHeight)
+            )
+            val targetWidth = (documentWidth * scale).toInt().coerceAtLeast(1)
+            val targetHeight = (documentHeight * scale).toInt().coerceAtLeast(1)
+            val bitmaps = mutableListOf<Bitmap>()
+            try {
+                frames.indices.forEach { index ->
+                    val full = renderProfiledFrame(index, AColor.WHITE)
+                    try {
+                        bitmaps += if (full.width == targetWidth && full.height == targetHeight) full.copy(Bitmap.Config.ARGB_8888, false)
+                            else Bitmap.createScaledBitmap(full, targetWidth, targetHeight, true)
+                    } finally { full.recycle() }
+                }
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    GifAnimationWriter.write(bitmaps, frames.map { it.durationMs }, output)
+                } ?: error("Unable to open the selected file.")
+            } finally { bitmaps.forEach { if (!it.isRecycled) it.recycle() } }
+        }.onSuccess { Toast.makeText(context, "Animated GIF exported", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context, "GIF export failed: ${it.message}", Toast.LENGTH_LONG).show() }
     }
 
     val exportPsd = rememberLauncherForActivityResult(
@@ -397,6 +428,7 @@ fun StudioScreen() {
                     TextButton(onClick = { exportTiff.launch("Artwork.tiff") }) { Text("TIFF", color = Color.White) }
                     TextButton(onClick = { exportSvg.launch("Artwork.svg") }) { Text("SVG", color = Color.White) }
                     TextButton(onClick = { exportSpriteSheet.launch("Animation-Sheet.png") }) { Text("Sheet", color = Color.White) }
+                    TextButton(onClick = { exportGif.launch("Animation.gif") }) { Text("GIF", color = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1E1E1E))
             )
