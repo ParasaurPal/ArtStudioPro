@@ -370,6 +370,30 @@ fun StudioScreen() {
         }
     }
 
+    val exportBrushLibrary = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(BrushLibrary.encode(savedBrushes)) }
+                ?: error("Unable to open the selected file.")
+        }.onSuccess { Toast.makeText(context,"Brush library exported",Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context,"Brush export failed: ${it.message}",Toast.LENGTH_LONG).show() }
+    }
+
+    val importBrushLibrary = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) runCatching {
+            val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                ?: error("Unable to read brush library.")
+            BrushLibrary.decode(text)
+        }.onSuccess { imported ->
+            savedBrushes = (savedBrushes + imported).distinctBy { it.id }
+            BrushLibrary.save(context,savedBrushes)
+            Toast.makeText(context,"${imported.size} brush presets imported",Toast.LENGTH_SHORT).show()
+        }.onFailure { Toast.makeText(context,"Brush import failed: ${it.message}",Toast.LENGTH_LONG).show() }
+    }
+
     val importBrushTip = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -622,6 +646,8 @@ fun StudioScreen() {
                                 .onFailure { Toast.makeText(context, "Could not save brush: ${it.message}", Toast.LENGTH_LONG).show() }
                         }) { Text("Save preset") }
                         TextButton(onClick = { savedBrushes = BrushLibrary.load(context); showBrushLibrary = true }) { Text("Brushes (${savedBrushes.size})") }
+                        TextButton(onClick = { exportBrushLibrary.launch("ArtStudioPro-brushes.json") }) { Text("Export brushes") }
+                        TextButton(onClick = { importBrushLibrary.launch(arrayOf("application/json", "text/plain")) }) { Text("Import brushes") }
                         TextButton(onClick = { importBrushTip.launch(arrayOf("image/*")) }) { Text(if (tipMask == null) "Import tip" else "Change tip") }
                         if (tipMask != null) {
                             TextButton(onClick = {
