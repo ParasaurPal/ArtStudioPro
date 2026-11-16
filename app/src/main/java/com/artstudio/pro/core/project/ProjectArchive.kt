@@ -49,7 +49,10 @@ object ProjectArchive {
         val visible: Boolean,
         val alphaLocked: Boolean,
         val blendMode: String,
-        val clippedToBelow: Boolean = false
+        val clippedToBelow: Boolean = false,
+        val brightness: Float = 0f,
+        val contrast: Float = 1f,
+        val saturation: Float = 1f
     )
 
     data class LoadedProject(
@@ -90,7 +93,10 @@ object ProjectArchive {
                     visible = layer.isVisible,
                     alphaLocked = layer.isAlphaLocked,
                     blendMode = layer.blendMode.name,
-                    clippedToBelow = layer.isClippedToBelow
+                    clippedToBelow = layer.isClippedToBelow,
+                    brightness = layer.brightness,
+                    contrast = layer.contrast,
+                    saturation = layer.saturation
                 )
             }
         )
@@ -161,7 +167,10 @@ object ProjectArchive {
                 opacity = metadata.opacity.coerceIn(0f, 1f),
                 isVisible = metadata.visible,
                 isAlphaLocked = metadata.alphaLocked,
-                isClippedToBelow = metadata.clippedToBelow
+                isClippedToBelow = metadata.clippedToBelow,
+                brightness = metadata.brightness.coerceIn(-1f, 1f),
+                contrast = metadata.contrast.coerceIn(0f, 2f),
+                saturation = metadata.saturation.coerceIn(0f, 2f)
             ).also { layer ->
                 layer.canvas.drawBitmap(bitmap, 0f, 0f, null)
                 layer.blendMode = runCatching {
