@@ -87,6 +87,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var selectionMode: SelectionMode = SelectionMode.NONE
         private set
+    var selectionTolerance: Int = 24
+        private set
     var drawingTool: DrawingTool = DrawingTool.BRUSH
         private set
     private var shapeStartX = 0f
@@ -403,6 +405,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             DrawingTool.BRUSH, DrawingTool.VECTOR_EDIT, DrawingTool.FILL -> Unit
         }
     }
+
+    fun setSelectionTolerance(value: Int) { selectionTolerance = value.coerceIn(0,255) }
 
     fun setSelectionMode(mode: SelectionMode) {
         selectionMode = mode
@@ -1494,7 +1498,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                     if (!viewportRect.contains(event.x, event.y)) return false
                     val point = documentPoint(event)
                     if (selectionMode == SelectionMode.COLOR_RANGE) {
-                        selectColorRange(point.x,point.y)
+                        selectColorRange(point.x,point.y,selectionTolerance)
                         selectionMode = SelectionMode.NONE
                         return true
                     }
