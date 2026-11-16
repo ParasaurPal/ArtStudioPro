@@ -44,12 +44,6 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var zoomFactor: Float = 1f
         private set
-    var showGrid: Boolean = false
-        private set
-    var gridSpacing: Int = 64
-        private set
-    var symmetryMode: SymmetryMode = SymmetryMode.NONE
-        private set
 
     fun setPaperTexture(kind: PaperKind, strength: Float = paperStrength) {
         paperKind = kind
@@ -74,6 +68,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private var panY = 0f
     private var lastFocusX = 0f
     private var lastFocusY = 0f
+    private var isNavigating = false
+    private var strokeActive = false
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
             zoomFactor = (zoomFactor * detector.scaleFactor).coerceIn(0.25f, 16f)
@@ -448,6 +444,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     private fun commitStroke() {
+        if (!strokeActive) return
+        strokeActive = false
         strokeEngine?.finishStroke(activeCanvas)
         symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.finishStroke(mirrorCanvas) }
         val targetLayer = activeLayer
@@ -487,27 +485,30 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         if (!transformReady) return false
         scaleDetector.onTouchEvent(event)
         if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+            isNavigating = true
             lastFocusX = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
             lastFocusY = (0 until event.pointerCount).map { event.getY(it) }.average().toFloat()
             commitStroke()
             return true
         }
-        if (event.pointerCount > 1 && event.actionMasked == MotionEvent.ACTION_MOVE) {
-            val focusX = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
-            val focusY = (0 until event.pointerCount).map { event.getY(it) }.average().toFloat()
-            panX += focusX - lastFocusX
-            panY += focusY - lastFocusY
-            lastFocusX = focusX
-            lastFocusY = focusY
-            updateTransform()
-            invalidate()
-            return true
-        }
-        if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
-            val remaining = (0 until event.pointerCount).filter { it != event.actionIndex }
-            if (remaining.isNotEmpty()) {
-                lastFocusX = remaining.map { event.getX(it) }.average().toFloat()
-                lastFocusY = remaining.map { event.getY(it) }.average().toFloat()
+        if (isNavigating) {
+            if (event.pointerCount > 1 && event.actionMasked == MotionEvent.ACTION_MOVE) {
+                val focusX = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
+                val focusY = (0 until event.pointerCount).map { event.getY(it) }.average().toFloat()
+                panX += focusX - lastFocusX
+                panY += focusY - lastFocusY
+                lastFocusX = focusX
+                lastFocusY = focusY
+                updateTransform()
+                invalidate()
+            } else if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
+                val remaining = (0 until event.pointerCount).filter { it != event.actionIndex }
+                if (remaining.isNotEmpty()) {
+                    lastFocusX = remaining.map { event.getX(it) }.average().toFloat()
+                    lastFocusY = remaining.map { event.getY(it) }.average().toFloat()
+                }
+            } else if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                isNavigating = false
             }
             return true
         }
@@ -520,6 +521,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 dirtyBounds.setEmpty()
                 hasDirtyBounds = false
                 trackDirty(point)
+                strokeActive = true
                 strokeEngine?.startStroke(point, activeCanvas)
                 prepareSymmetryEngines()
                 symmetryEngines.forEach { (mirrorCanvas, engine) -> engine.startStroke(point, mirrorCanvas) }
