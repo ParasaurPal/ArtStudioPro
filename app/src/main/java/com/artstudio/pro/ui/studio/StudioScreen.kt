@@ -51,6 +51,8 @@ fun StudioScreen() {
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
+    var showRenameLayer by remember { mutableStateOf(false) }
+    var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
     var brushMedium by remember { mutableStateOf(BrushMedium.INK_PEN) }
@@ -300,6 +302,10 @@ fun StudioScreen() {
                             ) {
                                 Text("Layer", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                                 TextButton(onClick = {
+                                    renameValue = selected.name
+                                    showRenameLayer = true
+                                }) { Text("Rename") }
+                                TextButton(onClick = {
                                     selected.isAlphaLocked = !selected.isAlphaLocked
                                     layerRefresh++
                                     canvasView?.invalidate()
@@ -418,6 +424,31 @@ fun StudioScreen() {
         )
     }
 
+
+    if (showRenameLayer) {
+        AlertDialog(
+            onDismissRequest = { showRenameLayer = false },
+            title = { Text("Rename layer") },
+            text = {
+                OutlinedTextField(
+                    value = renameValue,
+                    onValueChange = { renameValue = it.take(64) },
+                    singleLine = true,
+                    label = { Text("Layer name") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    canvasView?.renameActiveLayer(renameValue)
+                    layerRefresh++
+                    showRenameLayer = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameLayer = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     if (showMediumPicker) {
         AlertDialog(
