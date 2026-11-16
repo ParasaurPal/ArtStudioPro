@@ -45,5 +45,11 @@ data class BrushDefinition(
     var flowCurve: DynamicsCurve = DynamicsCurve(),
     var opacityCurve: DynamicsCurve = DynamicsCurve(),
     var sizeCurve: DynamicsCurve = DynamicsCurve(),
+    val advancedParameters: MutableMap<String, Float> = BrushParameter.defaults(),
     @Transient var tipMask: Bitmap? = null
-)
+) {
+    fun parameter(parameter: BrushParameter): Float = advancedParameters[parameter.name] ?: parameter.defaultValue
+    fun setParameter(parameter: BrushParameter, value: Float) {
+        advancedParameters[parameter.name] = value.coerceIn(parameter.minValue, parameter.maxValue)
+    }
+}
