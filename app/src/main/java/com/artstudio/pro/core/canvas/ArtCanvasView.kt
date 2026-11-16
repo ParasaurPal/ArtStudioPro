@@ -90,6 +90,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         private set
     var selectionTolerance: Int = 24
         private set
+    var fillTolerance: Int = 24
+        private set
     var drawingTool: DrawingTool = DrawingTool.BRUSH
         private set
     private var shapeStartX = 0f
@@ -429,6 +431,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun setSelectionTolerance(value: Int) { selectionTolerance = value.coerceIn(0,255) }
+    fun setFillTolerance(value: Int) { fillTolerance = value.coerceIn(0,255) }
 
     fun setSelectionMode(mode: SelectionMode) {
         selectionMode = mode
@@ -1430,7 +1433,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         if (drawingTool == DrawingTool.FILL && event.actionMasked == MotionEvent.ACTION_DOWN) {
             if (!viewportRect.contains(event.x, event.y)) return false
             val point = documentPoint(event)
-            floodFillAt(point.x, point.y, strokeEngine?.activeColor ?: Color.BLACK)
+            floodFillAt(point.x, point.y, strokeEngine?.activeColor ?: Color.BLACK, fillTolerance)
             performClick()
             return true
         }
