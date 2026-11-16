@@ -494,6 +494,7 @@ fun StudioScreen() {
             }
         }.onSuccess { mask ->
             tipMask?.takeIf { it !== mask && !it.isRecycled }?.recycle()
+            selectedBrushPreset = null
             tipMask = mask
             Toast.makeText(context, "Custom brush tip loaded", Toast.LENGTH_SHORT).show()
         }.onFailure {
@@ -1007,7 +1008,7 @@ fun StudioScreen() {
                         brush.sizeSource = dynamicsSource
                         brush.sizeCurve = DynamicsCurve(sizeCurveP1, sizeCurveP2)
                         brush.opacitySource = opacityDynamicsSource
-                        brush.tipMask = tipMask
+                        brush.tipMask = brush.tipMask ?: tipMask
                         view.strokeEngine?.brush = brush
                         view.strokeEngine?.activeColor = activeColor
                         view.strokeEngine?.eraserMode = eraserMode
