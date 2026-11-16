@@ -515,10 +515,11 @@ fun StudioScreen() {
                 if (scale < 1f) Bitmap.createScaledBitmap(
                     decoded, (decoded.width * scale).toInt().coerceAtLeast(1),
                     (decoded.height * scale).toInt().coerceAtLeast(1), true
-                ).also { if (it !== decoded) customBrushTexture?.takeIf { old -> old !== it && !old.isRecycled }?.recycle() }
+                )
                 else decoded.copy(Bitmap.Config.ARGB_8888, false)
             } finally { decoded.recycle() }
         }.onSuccess { texture ->
+            customBrushTexture?.takeIf { it !== texture && !it.isRecycled }?.recycle()
             selectedBrushPreset = null
             customBrushTexture = texture
             brushTexture = .5f
