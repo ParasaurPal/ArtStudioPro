@@ -283,6 +283,23 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
                 }
             }
         }
+        val customTexture = brush.textureBitmap
+        val textureAmount = maxOf(brush.textureStrength, brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.TEXTURE_STRENGTH))
+        if (!eraserMode && customTexture != null && !customTexture.isRecycled && textureAmount > 0f) {
+            detailPaint.shader = android.graphics.BitmapShader(
+                customTexture, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT
+            )
+            detailPaint.colorFilter = PorterDuffColorFilter(pigmentColor, PorterDuff.Mode.SRC_IN)
+            detailPaint.alpha = (flowAlpha * textureAmount).toInt().coerceIn(0,255)
+            detailPaint.style = Paint.Style.FILL
+            canvas.save()
+            canvas.rotate(Math.toDegrees(stampRotation.toDouble()).toFloat(), drawX, drawY)
+            canvas.drawCircle(drawX, drawY, radius, detailPaint)
+            canvas.restore()
+            detailPaint.shader = null
+            detailPaint.colorFilter = null
+            detailPaint.alpha = 255
+        }
         stampIndex++
     }
 }
