@@ -286,9 +286,16 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
         val customTexture = brush.textureBitmap
         val textureAmount = maxOf(brush.textureStrength, brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.TEXTURE_STRENGTH))
         if (!eraserMode && customTexture != null && !customTexture.isRecycled && textureAmount > 0f) {
-            detailPaint.shader = android.graphics.BitmapShader(
+            val textureShader = android.graphics.BitmapShader(
                 customTexture, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT
             )
+            val textureScale = (brush.textureScale * (1f + brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.TEXTURE_SCALE) * 4f)).coerceIn(.1f,8f)
+            val textureMatrix = android.graphics.Matrix().apply {
+                setScale(1f / textureScale, 1f / textureScale)
+                postRotate(brush.parameter(com.artstudio.pro.core.brush.model.BrushParameter.TEXTURE_ROTATION) * 360f)
+            }
+            textureShader.setLocalMatrix(textureMatrix)
+            detailPaint.shader = textureShader
             detailPaint.colorFilter = PorterDuffColorFilter(pigmentColor, PorterDuff.Mode.SRC_IN)
             detailPaint.alpha = (flowAlpha * textureAmount).toInt().coerceIn(0,255)
             detailPaint.style = Paint.Style.FILL
