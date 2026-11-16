@@ -488,8 +488,9 @@ fun StudioScreen() {
         if (uri != null) runCatching {
             ImportFormatReader.decode(context, uri)
         }.onSuccess { bitmap ->
-            canvasView?.addImageLayer(bitmap)
+            val added = canvasView?.addImageLayer(bitmap) == true
             bitmap.recycle()
+            if (!added) Toast.makeText(context, "Layer memory limit reached for this canvas size.", Toast.LENGTH_LONG).show()
             layerRefresh++
         }.onFailure {
             Toast.makeText(context, "Image import failed: ${it.message}", Toast.LENGTH_LONG).show()
