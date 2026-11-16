@@ -371,20 +371,21 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val rect = selectionRect ?: return
         val target = activeLayer
         val before = captureTiles(target, rect)
-        val mask = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
-        val maskCanvas = Canvas(mask)
+        val selectionMask = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
+        val maskCanvas = Canvas(selectionMask)
         val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
         if (selectionIsEllipse) maskCanvas.drawOval(rect, maskPaint)
         else maskCanvas.drawRect(rect, maskPaint)
-        target.canvas.drawBitmap(mask, 0f, 0f, Paint().apply {
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-        })
-        mask.recycle()
-        val after = captureTiles(target, rect)
-        redoHistory.forEach(::releaseChange)
-        redoHistory.clear()
-        undoHistory.addLast(StrokeChange(target.id, before, after))
-        while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
+        val existing = target.maskBitmap
+        if (existing == null) {
+            val newMask = target.createMask(fillWhite = false)
+            Canvas(newMask).drawBitmap(selectionMask, 0f, 0f, null)
+        } else {
+            Canvas(existing).drawBitmap(selectionMask, 0f, 0f, Paint().apply {
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            })
+        }
+        selectionMask.recycle()
         invalidate()
     }
 
@@ -551,8 +552,17 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             }
         } else null
         val source = clipped ?: layer.bitmap
-        if (destination == null) target.drawBitmap(source, 0f, 0f, paint)
-        else target.drawBitmap(source, null, destination, paint)
+        val masked = if (layer.maskEnabled && layer.maskBitmap != null) {
+            val result = source.copy(Bitmap.Config.ARGB_8888, true)
+            Canvas(result).drawBitmap(layer.maskBitmap!!, 0f, 0f, Paint().apply {
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            })
+            result
+        } else null
+        val drawable = masked ?: source
+        if (destination == null) target.drawBitmap(drawable, 0f, 0f, paint)
+        else target.drawBitmap(drawable, null, destination, paint)
+        masked?.recycle()
         clipped?.recycle()
     }
 
@@ -735,7 +745,16 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                     })
                 }
             } else null
-            outputCanvas.drawBitmap(clipped ?: layer.bitmap, 0f, 0f, paint)
+            val source = clipped ?: layer.bitmap
+            val masked = if (layer.maskEnabled && layer.maskBitmap != null) {
+                val result = source.copy(Bitmap.Config.ARGB_8888, true)
+                Canvas(result).drawBitmap(layer.maskBitmap!!, 0f, 0f, Paint().apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                })
+                result
+            } else null
+            outputCanvas.drawBitmap(masked ?: source, 0f, 0f, paint)
+            masked?.recycle()
             clipped?.recycle()
             if (!layer.isClippedToBelow) clipBase = layer.bitmap
         }
