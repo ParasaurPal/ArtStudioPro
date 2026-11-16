@@ -70,6 +70,8 @@ fun StudioScreen() {
     var showColorPicker by remember { mutableStateOf(false) }
     var customColorHex by remember { mutableStateOf("#000000") }
     var showRenameLayer by remember { mutableStateOf(false) }
+    var showTextContentDialog by remember { mutableStateOf(false) }
+    var comicTextContent by remember { mutableStateOf("Text") }
     var showLayerAdjustments by remember { mutableStateOf(false) }
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
@@ -354,6 +356,10 @@ fun StudioScreen() {
                                 layerRefresh++
                             }
                         }) { Text("Tool: ${canvasView?.drawingTool?.name?.lowercase() ?: "brush"}") }
+                        TextButton(onClick = {
+                            comicTextContent = canvasView?.textToolContent ?: "Text"
+                            showTextContentDialog = true
+                        }) { Text("Text content") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = {
                             val preset = brush.copy(
@@ -685,6 +691,31 @@ fun StudioScreen() {
         )
     }
 
+
+    if (showTextContentDialog) {
+        AlertDialog(
+            onDismissRequest = { showTextContentDialog = false },
+            title = { Text("Comic lettering") },
+            text = {
+                OutlinedTextField(
+                    value = comicTextContent,
+                    onValueChange = { comicTextContent = it.take(240) },
+                    label = { Text("Text to place") },
+                    minLines = 2,
+                    maxLines = 5
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    canvasView?.setTextToolContent(comicTextContent)
+                    showTextContentDialog = false
+                }) { Text("Use text") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTextContentDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     if (showRenameLayer) {
         AlertDialog(
