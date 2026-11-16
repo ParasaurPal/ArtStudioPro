@@ -1416,8 +1416,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun renderHighPrecisionComposite(): Bitmap {
-        require(documentWidth.toLong() * documentHeight.toLong() <= 12_000_000L) {
-            "A full-size 16-bit float composite exceeds the mobile memory budget. Use tiled export instead."
+        require(documentWidth.toLong() * documentHeight.toLong() <= 6_000_000L) {
+            "A full-size 16-bit float composite exceeds the mobile memory budget. Use the standard TIFF export for this canvas size."
         }
         val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.RGBA_F16)
         val outputCanvas = Canvas(output)
