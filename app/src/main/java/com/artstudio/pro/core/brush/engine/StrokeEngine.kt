@@ -125,7 +125,13 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
             customTip != null && !customTip.isRecycled -> {
                 tipPaint.colorFilter = PorterDuffColorFilter(activeColor, PorterDuff.Mode.SRC_IN)
                 tipPaint.alpha = flowAlpha
-                val destination = RectF(x - radius, y - radius, x + radius, y + radius)
+                val aspect = customTip.width.toFloat() / customTip.height.toFloat()
+                val tipWidth = if (aspect >= 1f) diameter else diameter * aspect
+                val tipHeight = if (aspect >= 1f) diameter / aspect else diameter
+                val destination = RectF(
+                    x - tipWidth / 2f, y - tipHeight / 2f,
+                    x + tipWidth / 2f, y + tipHeight / 2f
+                )
                 canvas.save()
                 canvas.rotate(Math.toDegrees(currentOrientation.toDouble()).toFloat(), x, y)
                 canvas.drawBitmap(customTip, null, destination, tipPaint)
