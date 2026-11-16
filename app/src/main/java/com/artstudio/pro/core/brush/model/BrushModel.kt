@@ -3,7 +3,7 @@ import android.graphics.Bitmap
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
-enum class BrushMedium { GRAPHITE, CHARCOAL, INK_PEN, WATERCOLOR, OIL_IMPASTO, PROCEDURAL }
+enum class BrushMedium { GRAPHITE, CHARCOAL, INK_PEN, WATERCOLOR, OIL_IMPASTO, SCREENTONE, PROCEDURAL }
 enum class DynamicsSource { PRESSURE, TILT, VELOCITY, FIXED }
 
 @Serializable
