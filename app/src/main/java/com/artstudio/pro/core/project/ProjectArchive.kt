@@ -37,7 +37,8 @@ object ProjectArchive {
         val height: Int,
         val layers: List<LayerManifest>,
         val paperKind: String = PaperKind.SMOOTH.name,
-        val paperStrength: Float = 1f
+        val paperStrength: Float = 1f,
+        val dpi: Int = 300
     )
 
     @Serializable
@@ -56,7 +57,8 @@ object ProjectArchive {
         val height: Int,
         val layers: List<ArtLayer>,
         val paperKind: PaperKind = PaperKind.SMOOTH,
-        val paperStrength: Float = 1f
+        val paperStrength: Float = 1f,
+        val dpi: Int = 300
     )
 
     fun save(
@@ -65,7 +67,8 @@ object ProjectArchive {
         height: Int,
         layers: List<ArtLayer>,
         paperKind: PaperKind = PaperKind.SMOOTH,
-        paperStrength: Float = 1f
+        paperStrength: Float = 1f,
+        dpi: Int = 300
     ) {
         require(width > 0 && height > 0) { "Project dimensions must be positive." }
         require(layers.isNotEmpty()) { "A project must contain at least one layer." }
@@ -78,6 +81,7 @@ object ProjectArchive {
             height = height,
             paperKind = paperKind.name,
             paperStrength = paperStrength.coerceIn(0f, 1f),
+            dpi = dpi.coerceIn(36, 2400),
             layers = layers.mapIndexed { index, layer ->
                 LayerManifest(
                     file = "layers/layer_%03d.png".format(index),
@@ -170,7 +174,8 @@ object ProjectArchive {
             manifest.height,
             loadedLayers,
             runCatching { PaperKind.valueOf(manifest.paperKind) }.getOrDefault(PaperKind.SMOOTH),
-            manifest.paperStrength.coerceIn(0f, 1f)
+            manifest.paperStrength.coerceIn(0f, 1f),
+            manifest.dpi.coerceIn(36, 2400)
         )
     }
 }
