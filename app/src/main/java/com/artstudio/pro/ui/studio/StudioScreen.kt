@@ -61,6 +61,7 @@ fun StudioScreen() {
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
+    var customColorHex by remember { mutableStateOf("#000000") }
     var showRenameLayer by remember { mutableStateOf(false) }
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
@@ -724,6 +725,20 @@ fun StudioScreen() {
             title = { Text("Color") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = customColorHex,
+                        onValueChange = { value ->
+                            val normalized = if (value.startsWith("#")) value else "#$value"
+                            customColorHex = normalized.take(9)
+                        },
+                        label = { Text("Hex color") },
+                        singleLine = true
+                    )
+                    TextButton(onClick = {
+                        runCatching { AColor.parseColor(customColorHex) }
+                            .onSuccess { activeColor = it; showColorPicker = false }
+                            .onFailure { Toast.makeText(context, "Enter a valid hex color.", Toast.LENGTH_SHORT).show() }
+                    }) { Text("Use custom color") }
                     studioPalette.chunked(4).forEach { rowColors ->
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             rowColors.forEach { color ->
