@@ -4,16 +4,49 @@ import android.graphics.*
 import java.util.UUID
 import com.artstudio.pro.core.vector.VectorPath
 
-enum class BlendMode(val porterDuffMode: PorterDuff.Mode?) {
-    NORMAL(null),
-    MULTIPLY(PorterDuff.Mode.MULTIPLY),
-    SCREEN(PorterDuff.Mode.SCREEN),
-    OVERLAY(PorterDuff.Mode.OVERLAY),
-    DARKEN(PorterDuff.Mode.DARKEN),
-    LIGHTEN(PorterDuff.Mode.LIGHTEN),
-    ADD(PorterDuff.Mode.ADD),
-    XOR(PorterDuff.Mode.XOR),
-    SRC_ATOP(PorterDuff.Mode.SRC_ATOP)
+enum class BlendMode(
+    val porterDuffMode: PorterDuff.Mode?,
+    val nativeMode: android.graphics.BlendMode?
+) {
+    NORMAL(null, null),
+    MULTIPLY(PorterDuff.Mode.MULTIPLY, android.graphics.BlendMode.MULTIPLY),
+    SCREEN(PorterDuff.Mode.SCREEN, android.graphics.BlendMode.SCREEN),
+    OVERLAY(PorterDuff.Mode.OVERLAY, android.graphics.BlendMode.OVERLAY),
+    DARKEN(PorterDuff.Mode.DARKEN, android.graphics.BlendMode.DARKEN),
+    LIGHTEN(PorterDuff.Mode.LIGHTEN, android.graphics.BlendMode.LIGHTEN),
+    ADD(PorterDuff.Mode.ADD, android.graphics.BlendMode.PLUS),
+    XOR(PorterDuff.Mode.XOR, android.graphics.BlendMode.XOR),
+    SRC_ATOP(PorterDuff.Mode.SRC_ATOP, android.graphics.BlendMode.SRC_ATOP),
+    COLOR_BURN(null, android.graphics.BlendMode.COLOR_BURN),
+    COLOR_DODGE(null, android.graphics.BlendMode.COLOR_DODGE),
+    LINEAR_BURN(PorterDuff.Mode.MULTIPLY, android.graphics.BlendMode.MULTIPLY),
+    LINEAR_DODGE(PorterDuff.Mode.ADD, android.graphics.BlendMode.PLUS),
+    DARKER_COLOR(PorterDuff.Mode.DARKEN, android.graphics.BlendMode.DARKEN),
+    LIGHTER_COLOR(PorterDuff.Mode.LIGHTEN, android.graphics.BlendMode.LIGHTEN),
+    SOFT_LIGHT(null, android.graphics.BlendMode.SOFT_LIGHT),
+    HARD_LIGHT(null, android.graphics.BlendMode.HARD_LIGHT),
+    VIVID_LIGHT(null, android.graphics.BlendMode.HARD_LIGHT),
+    LINEAR_LIGHT(null, android.graphics.BlendMode.HARD_LIGHT),
+    PIN_LIGHT(null, android.graphics.BlendMode.LIGHTEN),
+    HARD_MIX(null, android.graphics.BlendMode.DIFFERENCE),
+    DIFFERENCE(null, android.graphics.BlendMode.DIFFERENCE),
+    EXCLUSION(null, android.graphics.BlendMode.EXCLUSION),
+    SUBTRACT(null, android.graphics.BlendMode.DIFFERENCE),
+    DIVIDE(null, android.graphics.BlendMode.SCREEN),
+    HUE(null, android.graphics.BlendMode.HUE),
+    SATURATION(null, android.graphics.BlendMode.SATURATION),
+    COLOR(null, android.graphics.BlendMode.COLOR),
+    LUMINOSITY(null, android.graphics.BlendMode.LUMINOSITY);
+
+    fun applyTo(paint: Paint) {
+        if (android.os.Build.VERSION.SDK_INT >= 29 && nativeMode != null) {
+            paint.blendMode = nativeMode
+            paint.xfermode = null
+        } else {
+            paint.blendMode = null
+            paint.xfermode = porterDuffMode?.let { PorterDuffXfermode(it) }
+        }
+    }
 }
 
 data class ArtLayer(
