@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
@@ -146,7 +147,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     })
 
     private data class TileState(val x: Int, val y: Int, val bitmap: Bitmap)
-    private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>, val isMask: Boolean = false)
+    private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>, val isMask: Boolean = false, val maskBeforePng: ByteArray? = null, val maskAfterPng: ByteArray? = null)
     private val undoHistory = ArrayDeque<StrokeChange>()
     private val redoHistory = ArrayDeque<StrokeChange>()
     private val dirtyBounds = RectF()
@@ -184,6 +185,21 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         tiles.forEach { tile -> Canvas(destination).drawBitmap(tile.bitmap, tile.x.toFloat(), tile.y.toFloat(), paint) }
     }
 
+    private fun compressMask(bitmap: Bitmap): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) { "Could not snapshot layer mask." }
+        return output.toByteArray()
+    }
+
+    private fun restoreMask(layer: ArtLayer, encoded: ByteArray) {
+        val decoded = BitmapFactory.decodeByteArray(encoded, 0, encoded.size) ?: return
+        val target = layer.ensureMask()
+        Canvas(target).drawBitmap(decoded, 0f, 0f, Paint().apply {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC)
+        })
+        decoded.recycle()
+    }
+
     private fun releaseChange(change: StrokeChange) {
         (change.before + change.after).forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
     }
@@ -201,7 +217,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val change = undoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
-        restoreTiles(layer, change.before, if (change.isMask) layer.ensureMask() else layer.bitmap)
+        if (change.maskBeforePng != null) restoreMask(layer, change.maskBeforePng)
+        else restoreTiles(layer, change.before, if (change.isMask) layer.ensureMask() else layer.bitmap)
         redoHistory.addLast(change)
         invalidate()
     }
@@ -210,7 +227,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val change = redoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
-        restoreTiles(layer, change.after, if (change.isMask) layer.ensureMask() else layer.bitmap)
+        if (change.maskAfterPng != null) restoreMask(layer, change.maskAfterPng)
+        else restoreTiles(layer, change.after, if (change.isMask) layer.ensureMask() else layer.bitmap)
         undoHistory.addLast(change)
         invalidate()
     }
@@ -421,7 +439,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val rect = selectionRect ?: selectionPath?.let { path -> RectF().also { path.computeBounds(it, true) } } ?: return
         val target = activeLayer
         val mask = target.ensureMask()
-        val before = captureTiles(target, rect, mask)
+        val before = compressMask(mask)
         val selectionMask = selectionMaskBitmap ?: Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { created ->
             val maskCanvas = Canvas(created)
             val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
@@ -435,10 +453,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
         })
         if (selectionMaskBitmap == null) selectionMask.recycle()
-        val after = captureTiles(target, rect, mask)
+        val after = compressMask(mask)
         redoHistory.forEach(::releaseChange)
         redoHistory.clear()
-        undoHistory.addLast(StrokeChange(target.id, before, after, true))
+        undoHistory.addLast(StrokeChange(target.id, emptyList(), emptyList(), true, before, after))
         while (undoHistory.size > maxUndoEntries) releaseChange(undoHistory.removeFirst())
         invalidate()
     }
