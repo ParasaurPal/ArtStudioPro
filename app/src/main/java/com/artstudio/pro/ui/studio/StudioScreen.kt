@@ -57,6 +57,13 @@ fun StudioScreen() {
     var brushScatter by remember { mutableFloatStateOf(0f) }
     var brushRotationJitter by remember { mutableFloatStateOf(0f) }
     var brushSizeJitter by remember { mutableFloatStateOf(0f) }
+    var brushHardness by remember { mutableFloatStateOf(1f) }
+    var brushRoundness by remember { mutableFloatStateOf(1f) }
+    var brushTexture by remember { mutableFloatStateOf(0f) }
+    var brushWetness by remember { mutableFloatStateOf(0f) }
+    var brushPigmentLoad by remember { mutableFloatStateOf(1f) }
+    var brushBristles by remember { mutableFloatStateOf(3f) }
+    var brushWetMixing by remember { mutableStateOf(false) }
     var activeColor by remember { mutableIntStateOf(AColor.BLACK) }
     var documentWidth by remember { mutableIntStateOf(2048) }
     var documentHeight by remember { mutableIntStateOf(2048) }
@@ -370,6 +377,25 @@ fun StudioScreen() {
                         Slider(value = brushSizeJitter, onValueChange = { brushSizeJitter = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
                         Text("${(brushSizeJitter * 100).toInt()}%", color = Color.White, style = MaterialTheme.typography.labelSmall)
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Hardness", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushHardness, onValueChange = { brushHardness = it }, valueRange = 0.05f..1f, modifier = Modifier.weight(1f).padding(horizontal = 5.dp))
+                        Text("Round", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushRoundness, onValueChange = { brushRoundness = it }, valueRange = 0.08f..1f, modifier = Modifier.weight(1f).padding(horizontal = 5.dp))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Texture", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushTexture, onValueChange = { brushTexture = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 5.dp))
+                        Text("Wet", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushWetness, onValueChange = { brushWetness = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 5.dp))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Pigment", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushPigmentLoad, onValueChange = { brushPigmentLoad = it }, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 5.dp))
+                        Text("Bristles", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Slider(value = brushBristles, onValueChange = { brushBristles = it }, valueRange = 1f..48f, modifier = Modifier.weight(1f).padding(horizontal = 5.dp))
+                        TextButton(onClick = { brushWetMixing = !brushWetMixing }) { Text(if (brushWetMixing) "Mix on" else "Mix off") }
+                    }
                     Text("Layers (${canvasView?.layers?.size ?: 0}) · ${layerRefresh}", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -451,6 +477,13 @@ fun StudioScreen() {
                                 scatter = brushScatter,
                                 rotationJitter = brushRotationJitter,
                                 sizeJitter = brushSizeJitter,
+                                hardness = brushHardness,
+                                roundness = brushRoundness,
+                                textureStrength = brushTexture,
+                                wetness = brushWetness,
+                                pigmentLoad = brushPigmentLoad,
+                                bristleCount = brushBristles.toInt(),
+                                wetMixing = brushWetMixing,
                                 sizeSource = dynamicsSource,
                                 opacitySource = opacityDynamicsSource,
                                 tipMask = null
@@ -678,6 +711,13 @@ fun StudioScreen() {
                         brush.scatter = brushScatter
                         brush.rotationJitter = brushRotationJitter
                         brush.sizeJitter = brushSizeJitter
+                        brush.hardness = brushHardness
+                        brush.roundness = brushRoundness
+                        brush.textureStrength = brushTexture
+                        brush.wetness = brushWetness
+                        brush.pigmentLoad = brushPigmentLoad
+                        brush.bristleCount = brushBristles.toInt()
+                        brush.wetMixing = brushWetMixing
                         brush.sizeSource = dynamicsSource
                         brush.opacitySource = opacityDynamicsSource
                         brush.tipMask = tipMask
