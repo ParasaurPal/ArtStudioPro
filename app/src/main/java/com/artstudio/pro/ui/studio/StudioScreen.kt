@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.model.BrushDefinition
+import com.artstudio.pro.core.brush.model.BrushParameter
 import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.brush.model.DynamicsSource
 import com.artstudio.pro.core.brush.model.DynamicsCurve
@@ -122,6 +123,9 @@ fun StudioScreen() {
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
+    var showAdvancedBrushDialog by remember { mutableStateOf(false) }
+    var advancedBrushGroup by remember { mutableStateOf(BrushParameter.groups.first()) }
+    var advancedBrushRevision by remember { mutableIntStateOf(0) }
     var showBrushLibrary by remember { mutableStateOf(false) }
     var savedBrushes by remember { mutableStateOf(BrushLibrary.load(context)) }
     var brushMedium by remember { mutableStateOf(BrushMedium.INK_PEN) }
@@ -660,6 +664,7 @@ fun StudioScreen() {
                             showTextContentDialog = true
                         }) { Text("Text content") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
+                        TextButton(onClick = { showAdvancedBrushDialog = true }) { Text("Advanced brush · 121") }
                         TextButton(onClick = { showFilterPicker = true }) { Text("Filters") }
                         TextButton(onClick = {
                             gradientColorIndex = (gradientColorIndex + 1) % studioPalette.size
@@ -1416,6 +1421,46 @@ fun StudioScreen() {
             confirmButton = {
                 TextButton(onClick = { showLayerAdjustments = false }) { Text("Done") }
             }
+        )
+    }
+
+    if (showAdvancedBrushDialog) {
+        AlertDialog(
+            onDismissRequest = { showAdvancedBrushDialog = false },
+            title = { Text("Advanced brush engine") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        BrushParameter.groups.forEach { group ->
+                            TextButton(onClick = { advancedBrushGroup = group }) {
+                                Text(if (advancedBrushGroup == group) "• $group" else group)
+                            }
+                        }
+                    }
+                    BrushParameter.values().filter { it.group == advancedBrushGroup }.forEach { parameter ->
+                        val value = brush.parameter(parameter)
+                        Text(parameter.name.replace('_',' ').lowercase().replaceFirstChar { it.uppercase() } + " · ${(value*100).toInt()}%", style = MaterialTheme.typography.labelSmall)
+                        Slider(
+                            value = value,
+                            onValueChange = {
+                                brush.setParameter(parameter,it)
+                                advancedBrushRevision++
+                                layerRefresh++
+                                canvasView?.invalidate()
+                            },
+                            valueRange = parameter.minValue..parameter.maxValue
+                        )
+                    }
+                    Text("Parameters are saved with brush presets and can be tuned independently for each brush.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showAdvancedBrushDialog = false }) { Text("Done") } }
         )
     }
 
