@@ -48,7 +48,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private val layerPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val viewToDocument = Matrix()
     private val documentToView = Matrix()
-    private var transformReady = false\n    private var previousInputX = 0f\n    private var previousInputY = 0f\n    private var previousInputTime = 0L
+    private var transformReady = false
+    private var previousInputX = 0f
+    private var previousInputY = 0f
+    private var previousInputTime = 0L
 
     private data class TileState(val x: Int, val y: Int, val bitmap: Bitmap)
     private data class StrokeChange(val layerId: String, val before: List<TileState>, val after: List<TileState>)
