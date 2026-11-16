@@ -139,6 +139,34 @@ fun StudioScreen() {
             .onFailure { Toast.makeText(context, "JPEG export failed: ${it.message}", Toast.LENGTH_LONG).show() }
     }
 
+    val exportPdf = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        if (uri != null) runCatching {
+            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderComposite()
+            val pageWidth = (documentWidth.toFloat() * 72f / documentDpi).toInt().coerceAtLeast(1)
+            val pageHeight = (documentHeight.toFloat() * 72f / documentDpi).toInt().coerceAtLeast(1)
+            val pdf = android.graphics.pdf.PdfDocument()
+            try {
+                val page = pdf.startPage(
+                    android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+                )
+                page.canvas.drawBitmap(
+                    bitmap, null,
+                    android.graphics.Rect(0, 0, pageWidth, pageHeight),
+                    android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+                )
+                pdf.finishPage(page)
+                context.contentResolver.openOutputStream(uri)?.use { pdf.writeTo(it) }
+                    ?: error("Unable to open the selected file.")
+            } finally {
+                pdf.close()
+                bitmap.recycle()
+            }
+        }.onSuccess { Toast.makeText(context, "Print PDF exported", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context, "PDF export failed: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
     val exportWebp = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("image/webp")
     ) { uri ->
@@ -249,6 +277,7 @@ fun StudioScreen() {
                     TextButton(onClick = { exportPng.launch("Artwork.png") }) { Text("PNG", color = Color.White) }
                     TextButton(onClick = { exportJpg.launch("Artwork.jpg") }) { Text("JPG", color = Color.White) }
                     TextButton(onClick = { exportWebp.launch("Artwork.webp") }) { Text("WebP", color = Color.White) }
+                    TextButton(onClick = { exportPdf.launch("Artwork.pdf") }) { Text("PDF", color = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1E1E1E))
             )
