@@ -43,6 +43,8 @@ import com.artstudio.pro.core.export.RasterFormatWriter
 import com.artstudio.pro.core.vector.VectorRenderer
 import com.artstudio.pro.core.print.PrintProduction
 import com.artstudio.pro.core.print.PrintSettings
+import com.artstudio.pro.core.reference.PoseReferenceView
+import com.artstudio.pro.core.reference.PosePreset
 
 private val studioPalette = listOf(
     AColor.BLACK, AColor.WHITE, AColor.RED, AColor.rgb(255, 145, 0),
@@ -89,6 +91,8 @@ fun StudioScreen() {
     var showFilterPicker by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf(ImageFilter.GRAYSCALE) }
     var filterAmount by remember { mutableFloatStateOf(1f) }
+    var showPoseReference by remember { mutableStateOf(false) }
+    var poseReferenceView by remember { mutableStateOf<PoseReferenceView?>(null) }
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
@@ -511,6 +515,10 @@ fun StudioScreen() {
                         }) { Text("Text content") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = { showFilterPicker = true }) { Text("Filters") }
+                        TextButton(onClick = { canvasView?.addVectorRectangle(); layerRefresh++ }) { Text("Vector rect") }
+                        TextButton(onClick = { canvasView?.addVectorEllipse(); layerRefresh++ }) { Text("Vector ellipse") }
+                        TextButton(onClick = { canvasView?.addVectorLine(); layerRefresh++ }) { Text("Vector line") }
+                        TextButton(onClick = { showPoseReference = true }) { Text("3D pose") }
                         TextButton(onClick = {
                             val preset = brush.copy(
                                 id = java.util.UUID.randomUUID().toString(),
@@ -970,6 +978,35 @@ fun StudioScreen() {
             confirmButton = {
                 TextButton(onClick = { showBrushLibrary = false }) { Text("Close") }
             }
+        )
+    }
+
+    if (showPoseReference) {
+        AlertDialog(
+            onDismissRequest = { showPoseReference = false },
+            title = { Text("3D pose reference") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AndroidView(
+                        modifier = Modifier.fillMaxWidth().height(320.dp),
+                        factory = { ctx -> PoseReferenceView(ctx).also { poseReferenceView = it } },
+                        update = { poseReferenceView = it }
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        PosePreset.values().forEach { preset ->
+                            TextButton(onClick = {
+                                poseReferenceView?.model?.preset = preset
+                                poseReferenceView?.invalidate()
+                            }) { Text(preset.name.lowercase().replace('_',' ')) }
+                        }
+                    }
+                    Text("Drag the mannequin to rotate the camera. Pose references are a separate guide and do not alter your artwork.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showPoseReference = false }) { Text("Close") } }
         )
     }
 
