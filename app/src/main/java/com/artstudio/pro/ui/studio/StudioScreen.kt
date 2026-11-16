@@ -869,6 +869,10 @@ fun StudioScreen() {
                                     renameValue = selected.name
                                     showRenameLayer = true
                                 }) { Text("Rename") }
+                                TextButton(onClick = {
+                                    canvasView?.activeLayer?.let { it.isLocked = !it.isLocked }
+                                    layerRefresh++
+                                }) { Text(if (canvasView?.activeLayer?.isLocked == true) "Unlock" else "Lock") }
                                 TextButton(onClick = { showLayerAdjustments = true }) { Text("Adjust") }
                                 TextButton(onClick = { showBlendModePicker = true }) { Text("Blend: ${canvasView?.activeLayer?.blendMode?.name?.lowercase()?.replace('_',' ') ?: "normal"}") }
                                 TextButton(onClick = { showTransformDialog = true }) { Text("Transform") }
