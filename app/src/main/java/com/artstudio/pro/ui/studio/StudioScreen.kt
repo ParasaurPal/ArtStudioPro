@@ -27,6 +27,7 @@ import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.model.BrushDefinition
 import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.brush.model.DynamicsSource
+import com.artstudio.pro.core.brush.model.BrushLibrary
 import com.artstudio.pro.core.canvas.ArtCanvasView
 import com.artstudio.pro.core.canvas.SymmetryMode
 import com.artstudio.pro.core.canvas.SelectionMode
@@ -69,6 +70,8 @@ fun StudioScreen() {
     var renameValue by remember { mutableStateOf("") }
     var showPaperPicker by remember { mutableStateOf(false) }
     var showMediumPicker by remember { mutableStateOf(false) }
+    var showBrushLibrary by remember { mutableStateOf(false) }
+    var savedBrushes by remember { mutableStateOf(BrushLibrary.load(context)) }
     var brushMedium by remember { mutableStateOf(BrushMedium.INK_PEN) }
     var dynamicsSource by remember { mutableStateOf(DynamicsSource.PRESSURE) }
     var opacityDynamicsSource by remember { mutableStateOf(DynamicsSource.PRESSURE) }
@@ -345,6 +348,28 @@ fun StudioScreen() {
                             }
                         }) { Text("Tool: ${canvasView?.drawingTool?.name?.lowercase() ?: "brush"}") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
+                        TextButton(onClick = {
+                            val preset = brush.copy(
+                                id = java.util.UUID.randomUUID().toString(),
+                                name = "${brush.name} ${savedBrushes.size + 1}",
+                                baseSize = brushSize,
+                                baseOpacity = brushOpacity,
+                                flow = brushFlow,
+                                spacing = brushSpacing,
+                                streamline = brushStreamline,
+                                scatter = brushScatter,
+                                rotationJitter = brushRotationJitter,
+                                sizeJitter = brushSizeJitter,
+                                sizeSource = dynamicsSource,
+                                opacitySource = opacityDynamicsSource,
+                                tipMask = null
+                            )
+                            savedBrushes = savedBrushes + preset
+                            runCatching { BrushLibrary.save(context, savedBrushes) }
+                                .onSuccess { Toast.makeText(context, "Brush preset saved", Toast.LENGTH_SHORT).show() }
+                                .onFailure { Toast.makeText(context, "Could not save brush: ${it.message}", Toast.LENGTH_LONG).show() }
+                        }) { Text("Save preset") }
+                        TextButton(onClick = { savedBrushes = BrushLibrary.load(context); showBrushLibrary = true }) { Text("Brushes (${savedBrushes.size})") }
                         TextButton(onClick = { importBrushTip.launch(arrayOf("image/*")) }) { Text(if (tipMask == null) "Import tip" else "Change tip") }
                         if (tipMask != null) {
                             TextButton(onClick = {
@@ -614,6 +639,52 @@ fun StudioScreen() {
             },
             dismissButton = {
                 TextButton(onClick = { showRenameLayer = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showBrushLibrary) {
+        AlertDialog(
+            onDismissRequest = { showBrushLibrary = false },
+            title = { Text("Brush library") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (savedBrushes.isEmpty()) Text("No saved brush presets yet.")
+                    savedBrushes.forEach { preset ->
+                        TextButton(
+                            onClick = {
+                                brushMedium = preset.medium
+                                brushSize = preset.baseSize
+                                brushOpacity = preset.baseOpacity
+                                brushFlow = preset.flow
+                                brushSpacing = preset.spacing
+                                brushStreamline = preset.streamline
+                                brushScatter = preset.scatter
+                                brushRotationJitter = preset.rotationJitter
+                                brushSizeJitter = preset.sizeJitter
+                                dynamicsSource = preset.sizeSource
+                                opacityDynamicsSource = preset.opacitySource
+                                showBrushLibrary = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(preset.name)
+                                Text(
+                                    "${preset.medium.name.replace('_', ' ')} · ${preset.baseSize.toInt()} px · ${(preset.baseOpacity * 100).toInt()}% opacity",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBrushLibrary = false }) { Text("Close") }
             }
         )
     }
