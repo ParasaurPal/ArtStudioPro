@@ -28,6 +28,7 @@ import com.artstudio.pro.core.brush.model.BrushDefinition
 import com.artstudio.pro.core.brush.model.BrushMedium
 import com.artstudio.pro.core.brush.model.DynamicsSource
 import com.artstudio.pro.core.canvas.ArtCanvasView
+import com.artstudio.pro.core.canvas.SymmetryMode
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
@@ -226,6 +227,21 @@ fun StudioScreen() {
                             canvasView?.strokeEngine?.eraserMode = eraserMode
                         }) { Text(if (eraserMode) "Eraser on" else "Eraser") }
                         TextButton(onClick = { showPaperPicker = true }) { Text("Paper: ${paperKind.title}") }
+                        TextButton(onClick = {
+                            val view = canvasView
+                            if (view != null) {
+                                view.setGrid(!view.showGrid)
+                                layerRefresh++
+                            }
+                        }) { Text(if (canvasView?.showGrid == true) "Grid on" else "Grid off") }
+                        TextButton(onClick = {
+                            val modes = SymmetryMode.values()
+                            val view = canvasView
+                            if (view != null) {
+                                view.setSymmetry(modes[(modes.indexOf(view.symmetryMode) + 1) % modes.size])
+                                layerRefresh++
+                            }
+                        }) { Text("Symmetry: ${canvasView?.symmetryMode?.name?.lowercase() ?: "none"}") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = { importBrushTip.launch(arrayOf("image/*")) }) { Text(if (tipMask == null) "Import tip" else "Change tip") }
                         if (tipMask != null) {
