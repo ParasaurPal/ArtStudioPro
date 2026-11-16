@@ -598,12 +598,12 @@ fun StudioScreen() {
                         }) { Text("◀") }
                         TextButton(onClick = {
                             val view = canvasView
-                            if (view != null && !view.addBlankFrame()) Toast.makeText(context, "Maximum 120 frames.", Toast.LENGTH_SHORT).show()
+                            if (view != null && !view.addBlankFrame()) Toast.makeText(context, "Animation frame or mobile memory limit reached.", Toast.LENGTH_SHORT).show()
                             layerRefresh++
                         }) { Text("+ Blank") }
                         TextButton(onClick = {
                             val view = canvasView
-                            if (view != null && !view.duplicateFrame()) Toast.makeText(context, "Maximum 120 frames.", Toast.LENGTH_SHORT).show()
+                            if (view != null && !view.duplicateFrame()) Toast.makeText(context, "Animation frame or mobile memory limit reached.", Toast.LENGTH_SHORT).show()
                             layerRefresh++
                         }) { Text("Duplicate") }
                         TextButton(onClick = { canvasView?.deleteFrame(); layerRefresh++ }) { Text("Delete") }
