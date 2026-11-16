@@ -246,6 +246,19 @@ fun StudioScreen() {
                                 layerRefresh++
                             }
                         }) { Text("Symmetry: ${canvasView?.symmetryMode?.name?.lowercase() ?: "none"}") }
+                        TextButton(onClick = {
+                            canvasView?.let { it.setZoom(it.zoomFactor / 1.25f); layerRefresh++ }
+                        }) { Text("− zoom") }
+                        TextButton(onClick = {
+                            canvasView?.let { it.setZoom(it.zoomFactor * 1.25f); layerRefresh++ }
+                        }) { Text("+ zoom") }
+                        TextButton(onClick = {
+                            canvasView?.let {
+                                val next = when (it.gridSpacing) { 32 -> 64; 64 -> 128; else -> 32 }
+                                it.setGrid(it.showGrid, next)
+                                layerRefresh++
+                            }
+                        }) { Text("Grid ${canvasView?.gridSpacing ?: 64}px") }
                         TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = { importBrushTip.launch(arrayOf("image/*")) }) { Text(if (tipMask == null) "Import tip" else "Change tip") }
                         if (tipMask != null) {
