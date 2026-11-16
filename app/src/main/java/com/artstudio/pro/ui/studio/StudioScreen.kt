@@ -657,6 +657,18 @@ fun StudioScreen() {
                                 layerRefresh++
                             }
                         }) { Text("Select: ${canvasView?.selectionMode?.name?.lowercase() ?: "none"}") }
+                        if (canvasView?.selectionMode == SelectionMode.COLOR_RANGE) {
+                            Text("Wand tolerance")
+                            Slider(
+                                value = selectionTolerance,
+                                onValueChange = {
+                                    selectionTolerance = it
+                                    canvasView?.setSelectionTolerance(it.toInt())
+                                },
+                                valueRange = 0f..255f,
+                                modifier = Modifier.width(120.dp)
+                            )
+                        }
                         if (canvasView?.hasSelection == true) {
                             TextButton(onClick = { canvasView?.maskActiveLayerToSelection(); layerRefresh++ }) { Text("Mask layer") }
                             TextButton(onClick = { canvasView?.clearSelection(); layerRefresh++ }) { Text("Clear selection") }
