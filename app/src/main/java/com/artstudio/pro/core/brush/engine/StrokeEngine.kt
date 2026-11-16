@@ -174,7 +174,7 @@ class StrokeEngine(var brush: BrushDefinition, var activeColor: Int = Color.BLAC
             }
             brush.medium == BrushMedium.WATERCOLOR -> {
                 canvas.drawCircle(drawX, drawY, radius, paint)
-                detailPaint.color = activeColor
+                detailPaint.color = pigmentColor
                 detailPaint.alpha = (flowAlpha * 0.18f).toInt().coerceIn(0, 255)
                 detailPaint.style = Paint.Style.STROKE
                 detailPaint.strokeWidth = (diameter * 0.10f).coerceAtLeast(1f)
