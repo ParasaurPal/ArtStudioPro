@@ -469,12 +469,12 @@ fun StudioScreen() {
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    Text("Maximum 16,000 × 16,000 pixels · 300 DPI default", style = MaterialTheme.typography.labelSmall)
+                    Text("Up to 16,000 px per side · 20 MP total area limit · 300 DPI default", style = MaterialTheme.typography.labelSmall)
                     Button(
                         onClick = {
                             val width = customWidth.toIntOrNull()
                             val height = customHeight.toIntOrNull()
-                            if (width != null && height != null && width in 1..16000 && height in 1..16000) {
+                            if (width != null && height != null && width in 1..16000 && height in 1..16000 && width.toLong() * height.toLong() <= 20_000_000L) {
                                 val freshLayer = ArtLayer(name = "Background", width = width, height = height)
                                 documentDpi = 300
                                 if (width == documentWidth && height == documentHeight) {
@@ -487,7 +487,7 @@ fun StudioScreen() {
                                 }
                                 showNewDocument = false
                             } else {
-                                Toast.makeText(context, "Enter dimensions from 1 to 16,000 pixels.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Enter valid dimensions within the 20-megapixel mobile canvas limit.", Toast.LENGTH_LONG).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
