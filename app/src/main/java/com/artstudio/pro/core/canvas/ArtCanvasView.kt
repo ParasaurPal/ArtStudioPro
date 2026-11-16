@@ -1168,6 +1168,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     fun replaceLayers(newLayers: List<ArtLayer>) {
         require(newLayers.isNotEmpty())
         require(newLayers.size <= maxLayerCount) { "This project has more layers than this canvas can safely hold on this device." }
+        require(newLayers.sumOf { 1L + if (it.maskBitmap != null) 1L else 0L } * documentWidth.toLong() * documentHeight.toLong() <= 64_000_000L) {
+            "This project exceeds the safe mobile memory budget including layer masks."
+        }
         require(newLayers.all { it.width == documentWidth && it.height == documentHeight })
         layers = newLayers.toMutableList()
         animationFrames.clear()
