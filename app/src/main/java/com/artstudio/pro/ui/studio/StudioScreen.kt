@@ -36,6 +36,7 @@ import com.artstudio.pro.core.canvas.DrawingTool
 import com.artstudio.pro.core.canvas.PerspectiveMode
 import com.artstudio.pro.core.model.ArtLayer
 import com.artstudio.pro.core.model.AnimationFrame
+import com.artstudio.pro.core.model.LayerGroup
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
@@ -91,6 +92,7 @@ fun StudioScreen() {
     var customDpi by remember { mutableStateOf("300") }
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
     var pendingFrames by remember { mutableStateOf<List<AnimationFrame>?>(null) }
+    var pendingGroups by remember { mutableStateOf<List<LayerGroup>?>(null) }
     var pendingFrameIndex by remember { mutableIntStateOf(0) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
@@ -158,7 +160,7 @@ fun StudioScreen() {
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
             context.contentResolver.openOutputStream(uri)?.use {
-                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength, documentDpi, view.animationFramesSnapshot(), view.currentFrameIndex, documentColorProfile)
+                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength, documentDpi, view.animationFramesSnapshot(), view.currentFrameIndex, documentColorProfile, view.layerGroups)
             } ?: error("Unable to open the selected file.")
         }.onSuccess {
             Toast.makeText(context, "Project saved", Toast.LENGTH_SHORT).show()
@@ -382,11 +384,13 @@ fun StudioScreen() {
             canvasView?.setPaperTexture(project.paperKind, project.paperStrength)
             if (project.width == documentWidth && project.height == documentHeight) {
                 canvasView?.replaceFrames(project.frames, project.currentFrameIndex)
+                canvasView?.replaceLayerGroups(project.groups)
                 layerRefresh++
             } else {
                 pendingLayers = project.layers
                 pendingFrames = project.frames
                 pendingFrameIndex = project.currentFrameIndex
+                pendingGroups = project.groups
                 documentWidth = project.width
                 documentHeight = project.height
             }
@@ -711,6 +715,21 @@ fun StudioScreen() {
                             layerRefresh++
                         }) { Text("Duplicate") }
                         TextButton(onClick = {
+                            canvasView?.createLayerGroup()
+                            layerRefresh++
+                        }) { Text("New group") }
+                        TextButton(onClick = {
+                            val groups = canvasView?.layerGroups.orEmpty()
+                            val current = canvasView?.activeLayer?.groupId
+                            val next = groups.firstOrNull { it.id != current }?.id
+                            canvasView?.assignActiveLayerToGroup(next)
+                            layerRefresh++
+                        }) { Text("Move to group") }
+                        TextButton(onClick = {
+                            canvasView?.activeLayer?.groupId?.let { canvasView?.toggleLayerGroupVisibility(it) }
+                            layerRefresh++
+                        }) { Text("Group visibility") }
+                        TextButton(onClick = {
                             canvasView?.createActiveLayerMask()
                             layerRefresh++
                         }) { Text("Add mask") }
@@ -897,6 +916,7 @@ fun StudioScreen() {
                             setSafeMargin((printSafeMarginMm * documentDpi / 25.4f).toInt())
                             pendingFrames?.let { replaceFrames(it, pendingFrameIndex) }
                                 ?: pendingLayers?.let { replaceLayers(it) }
+                            pendingGroups?.let { replaceLayerGroups(it) }
                             canvasView = this
                         }
                     },
