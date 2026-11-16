@@ -792,16 +792,18 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
             }
             layer.applyColorAdjustments(paint)
+            val layerRaster = layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)
+            VectorRenderer.draw(Canvas(layerRaster), layer.vectorPaths)
             val clipped = if (layer.isClippedToBelow && clipBase != null) {
                 Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { temp ->
                     val tempCanvas = Canvas(temp)
-                    tempCanvas.drawBitmap(layer.bitmap, 0f, 0f, null)
+                    tempCanvas.drawBitmap(layerRaster, 0f, 0f, null)
                     tempCanvas.drawBitmap(clipBase!!, 0f, 0f, Paint().apply {
                         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
                     })
                 }
             } else null
-            val source = clipped ?: layer.bitmap
+            val source = clipped ?: layerRaster
             val masked = if (layer.maskEnabled && layer.maskBitmap != null) {
                 val result = source.copy(Bitmap.Config.ARGB_8888, true)
                 Canvas(result).drawBitmap(layer.maskBitmap!!, 0f, 0f, Paint().apply {
@@ -812,6 +814,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             outputCanvas.drawBitmap(masked ?: source, 0f, 0f, paint)
             masked?.recycle()
             clipped?.recycle()
+            layerRaster.recycle()
             if (!layer.isClippedToBelow) clipBase = layer.bitmap
         }
         return output
