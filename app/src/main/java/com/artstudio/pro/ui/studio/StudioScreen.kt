@@ -989,9 +989,16 @@ fun StudioScreen() {
                             strokeEngine = StrokeEngine(brush, activeColor)
                             setPaperTexture(paperKind, paperStrength)
                             setSafeMargin((printSafeMarginMm * documentDpi / 25.4f).toInt())
-                            pendingFrames?.let { replaceFrames(it, pendingFrameIndex) }
-                                ?: pendingLayers?.let { replaceLayers(it) }
+                            val framesToRestore = pendingFrames
+                            if (framesToRestore != null) {
+                                replaceFrames(framesToRestore, pendingFrameIndex)
+                                pendingFrames = null
+                            } else {
+                                pendingLayers?.let { replaceLayers(it) }
+                                pendingLayers = null
+                            }
                             pendingGroups?.let { replaceLayerGroups(it) }
+                            pendingGroups = null
                             canvasView = this
                         }
                     },
