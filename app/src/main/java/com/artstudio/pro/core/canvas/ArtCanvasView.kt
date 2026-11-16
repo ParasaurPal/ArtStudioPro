@@ -199,7 +199,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val copy = ArtLayer(
             name = "${source.name} copy", width = documentWidth, height = documentHeight,
             opacity = source.opacity, isVisible = source.isVisible,
-            isAlphaLocked = source.isAlphaLocked, isClippedToBelow = source.isClippedToBelow,\n            blendMode = source.blendMode
+            isAlphaLocked = source.isAlphaLocked, isClippedToBelow = source.isClippedToBelow,
+            blendMode = source.blendMode
         )
         copy.canvas.drawBitmap(source.bitmap, 0f, 0f, null)
         layers.add(activeLayerIndex + 1, copy)
