@@ -338,6 +338,7 @@ fun StudioScreen() {
                             }
                         }) { Text("Select: ${canvasView?.selectionMode?.name?.lowercase() ?: "none"}") }
                         if (canvasView?.hasSelection == true) {
+                            TextButton(onClick = { canvasView?.maskActiveLayerToSelection(); layerRefresh++ }) { Text("Mask layer") }
                             TextButton(onClick = { canvasView?.clearSelection(); layerRefresh++ }) { Text("Clear selection") }
                         }
                         TextButton(onClick = {
