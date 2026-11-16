@@ -1151,7 +1151,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         sourceLayers.filter { isLayerVisible(it) }.forEach { layer ->
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
-                xfermode = layer.blendMode.porterDuffMode?.let { PorterDuffXfermode(it) }
+                layer.blendMode.applyTo(this)
             }
             layer.applyColorAdjustments(paint)
             val layerRaster = layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)
