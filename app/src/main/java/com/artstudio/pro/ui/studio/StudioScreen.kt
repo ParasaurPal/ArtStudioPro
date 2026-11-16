@@ -650,6 +650,9 @@ fun StudioScreen() {
                             }
                         }) { Text("Grid ${canvasView?.gridSpacing ?: 64}px") }
                         TextButton(onClick = {
+                            canvasView?.let { it.setSnapToGrid(!it.snapToGrid); layerRefresh++ }
+                        }) { Text(if (canvasView?.snapToGrid == true) "Snap on" else "Snap off") }
+                        TextButton(onClick = {
                             canvasView?.let { it.setRulers(!it.showRulers); layerRefresh++ }
                         }) { Text(if (canvasView?.showRulers == true) "Rulers on" else "Rulers off") }
                         TextButton(onClick = {
