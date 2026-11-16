@@ -33,7 +33,7 @@ import com.artstudio.pro.core.paper.PaperTexture
 import kotlin.math.min
 
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
-enum class SelectionMode { NONE, RECTANGLE, ELLIPSE, LASSO }
+enum class SelectionMode { NONE, RECTANGLE, ELLIPSE, LASSO, COLOR_RANGE }
 enum class PerspectiveMode { OFF, ONE_POINT, TWO_POINT, THREE_POINT }
 enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE, PANEL, SPEECH_BALLOON, TEXT, VECTOR_EDIT, FILL, GRADIENT, FILLED_RECTANGLE, FILLED_ELLIPSE }
 
@@ -98,9 +98,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private var selectedVectorPathId: String? = null
     private var selectedVectorNodeIndex: Int? = null
     private var draggingVectorNode = false
-    val hasSelection: Boolean get() = selectionRect != null || selectionPath != null
+    val hasSelection: Boolean get() = selectionRect != null || selectionPath != null || selectionMaskBitmap != null
     private var selectionRect: RectF? = null
     private var selectionPath: Path? = null
+    private var selectionMaskBitmap: Bitmap? = null
     private var selectionIsEllipse = false
     private var selectionStartX = 0f
     private var selectionStartY = 0f
@@ -413,18 +414,19 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val target = activeLayer
         val mask = target.ensureMask()
         val before = captureTiles(target, rect, mask)
-        val selectionMask = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
-        val maskCanvas = Canvas(selectionMask)
-        val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-        when {
-            selectionPath != null -> maskCanvas.drawPath(selectionPath!!, maskPaint)
-            selectionIsEllipse -> maskCanvas.drawOval(rect, maskPaint)
-            else -> maskCanvas.drawRect(rect, maskPaint)
+        val selectionMask = selectionMaskBitmap ?: Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { created ->
+            val maskCanvas = Canvas(created)
+            val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+            when {
+                selectionPath != null -> maskCanvas.drawPath(selectionPath!!, maskPaint)
+                selectionIsEllipse -> maskCanvas.drawOval(rect, maskPaint)
+                else -> maskCanvas.drawRect(rect, maskPaint)
+            }
         }
         Canvas(mask).drawBitmap(selectionMask, 0f, 0f, Paint().apply {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
         })
-        selectionMask.recycle()
+        if (selectionMaskBitmap == null) selectionMask.recycle()
         val after = captureTiles(target, rect, mask)
         redoHistory.forEach(::releaseChange)
         redoHistory.clear()
@@ -460,6 +462,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     fun clearSelection() {
         selectionRect = null
         selectionPath = null
+        selectionMaskBitmap?.recycle()
+        selectionMaskBitmap = null
         selectionIsEllipse = false
         selectionMode = SelectionMode.NONE
         invalidate()
@@ -478,6 +482,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private fun applySelectionClip(target: Canvas): Int? {
         val path = selectionPath
         val rect = selectionRect
+        if (selectionMaskBitmap != null) return null
         if (path == null && rect == null) return null
         val save = target.save()
         if (path != null) target.clipPath(path)
@@ -520,6 +525,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             style = Paint.Style.STROKE
             strokeWidth = 2f
             pathEffect = android.graphics.DashPathEffect(floatArrayOf(9f, 6f), 0f)
+        }
+        selectionMaskBitmap?.let { mask ->
+            val overlay = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                alpha = 80
+                colorFilter = android.graphics.PorterDuffColorFilter(Color.CYAN, PorterDuff.Mode.SRC_ATOP)
+            }
+            canvas.drawBitmap(mask,null,viewportRect,overlay)
         }
         selectionPath?.let { path ->
             val viewPath = Path(path)
@@ -908,6 +920,43 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             ),
             strokeColor = color, strokeWidth = 8f, name = "Vector line"
         ))
+    }
+
+    fun selectColorRange(x: Float, y: Float, tolerance: Int = 24): Boolean {
+        val width = documentWidth
+        val height = documentHeight
+        val count = width.toLong() * height
+        if (count > 4_000_000L) return false
+        val pixels = IntArray(count.toInt())
+        activeLayer.bitmap.getPixels(pixels,0,width,0,0,width,height)
+        val sx=x.toInt().coerceIn(0,width-1);val sy=y.toInt().coerceIn(0,height-1)
+        val seed=pixels[sy*width+sx]
+        val limit=tolerance.coerceIn(0,255).let{it*it*3}
+        fun matches(c:Int):Boolean {
+            if(Color.alpha(c)==0&&Color.alpha(seed)==0)return true
+            val dr=Color.red(c)-Color.red(seed);val dg=Color.green(c)-Color.green(seed);val db=Color.blue(c)-Color.blue(seed)
+            return dr*dr+dg*dg+db*db<=limit
+        }
+        val visited=BooleanArray(count.toInt());val queue=IntArray(count.toInt())
+        var head=0;var tail=0;val start=sy*width+sx;queue[tail++]=start;visited[start]=true
+        var left=sx;var right=sx;var top=sy;var bottom=sy
+        val maskPixels=IntArray(count.toInt())
+        while(head<tail){
+            val index=queue[head++];val px=index%width;val py=index/width
+            if(!matches(pixels[index]))continue
+            maskPixels[index]=Color.WHITE
+            left=minOf(left,px);right=maxOf(right,px);top=minOf(top,py);bottom=maxOf(bottom,py)
+            if(px>0){val n=index-1;if(!visited[n]&&matches(pixels[n])){visited[n]=true;queue[tail++]=n}}
+            if(px<width-1){val n=index+1;if(!visited[n]&&matches(pixels[n])){visited[n]=true;queue[tail++]=n}}
+            if(py>0){val n=index-width;if(!visited[n]&&matches(pixels[n])){visited[n]=true;queue[tail++]=n}}
+            if(py<height-1){val n=index+width;if(!visited[n]&&matches(pixels[n])){visited[n]=true;queue[tail++]=n}}
+        }
+        selectionMaskBitmap?.recycle()
+        selectionMaskBitmap=Bitmap.createBitmap(maskPixels,width,height,Bitmap.Config.ARGB_8888)
+        selectionRect=RectF(left.toFloat(),top.toFloat(),(right+1).toFloat(),(bottom+1).toFloat())
+        selectionPath=null;selectionIsEllipse=false;selectionMode=SelectionMode.NONE
+        invalidate()
+        return true
     }
 
     fun floodFillAt(x: Float, y: Float, color: Int, tolerance: Int = 24): Boolean {
@@ -1318,6 +1367,11 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         activeCanvasSaveCount = null
         mirrorSaveCounts.forEach { (mirrorCanvas, saveCount) -> mirrorCanvas.restoreToCount(saveCount) }
         mirrorSaveCounts.clear()
+        selectionMaskBitmap?.let { mask ->
+            Canvas(activeBitmap).drawBitmap(mask,0f,0f,Paint().apply {
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            })
+        }
         val targetLayer = activeLayer
         val historyBitmap = if (isEditingLayerMask) targetLayer.ensureMask() else targetLayer.bitmap
         val before = if (hasDirtyBounds) captureTiles(targetLayer, dirtyBounds, historyBitmap) else emptyList()
@@ -1439,6 +1493,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 MotionEvent.ACTION_DOWN -> {
                     if (!viewportRect.contains(event.x, event.y)) return false
                     val point = documentPoint(event)
+                    if (selectionMode == SelectionMode.COLOR_RANGE) {
+                        selectColorRange(point.x,point.y)
+                        selectionMode = SelectionMode.NONE
+                        return true
+                    }
+                    selectionMaskBitmap?.recycle()
+                    selectionMaskBitmap = null
                     selectionStartX = point.x
                     selectionStartY = point.y
                     isSelecting = true
