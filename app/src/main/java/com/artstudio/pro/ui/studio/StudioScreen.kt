@@ -274,6 +274,19 @@ fun StudioScreen() {
             .onFailure { Toast.makeText(context,"PSD export failed: ${it.message}",Toast.LENGTH_LONG).show() }
     }
 
+    val exportTiff16 = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/tiff")
+    ) { uri ->
+        if (uri != null) runCatching {
+            val bitmap = (canvasView ?: error("The canvas is not ready.")).renderHighPrecisionComposite()
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { RasterFormatWriter.writeTiffFloat16(bitmap,it,documentDpi) }
+                    ?: error("Unable to open the selected file.")
+            } finally { bitmap.recycle() }
+        }.onSuccess { Toast.makeText(context,"16-bit float TIFF exported",Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context,"16-bit TIFF export failed: ${it.message}",Toast.LENGTH_LONG).show() }
+    }
+
     val exportTiff = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("image/tiff")
     ) { uri ->
@@ -470,6 +483,7 @@ fun StudioScreen() {
                     TextButton(onClick = { exportPdf.launch("Artwork.pdf") }) { Text("PDF", color = Color.White) }
                     TextButton(onClick = { exportPsd.launch("Artwork.psd") }) { Text("PSD", color = Color.White) }
                     TextButton(onClick = { exportTiff.launch("Artwork.tiff") }) { Text("TIFF", color = Color.White) }
+                    TextButton(onClick = { exportTiff16.launch("Artwork-16bit-float.tiff") }) { Text("16F TIFF", color = Color.White) }
                     TextButton(onClick = { exportSvg.launch("Artwork.svg") }) { Text("SVG", color = Color.White) }
                     TextButton(onClick = { exportSpriteSheet.launch("Animation-Sheet.png") }) { Text("Sheet", color = Color.White) }
                     TextButton(onClick = { exportGif.launch("Animation.gif") }) { Text("GIF", color = Color.White) }
