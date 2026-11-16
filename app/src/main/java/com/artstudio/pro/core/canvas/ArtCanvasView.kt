@@ -19,6 +19,7 @@ import android.view.View
 import com.artstudio.pro.core.brush.engine.StrokeEngine
 import com.artstudio.pro.core.brush.engine.StrokePoint
 import com.artstudio.pro.core.model.ArtLayer
+import com.artstudio.pro.core.model.AnimationFrame
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.paper.PaperKind
 import com.artstudio.pro.core.paper.PaperTexture
@@ -27,8 +28,6 @@ import kotlin.math.min
 enum class SymmetryMode { NONE, VERTICAL, HORIZONTAL, QUADRANT }
 enum class SelectionMode { NONE, RECTANGLE, ELLIPSE }
 enum class DrawingTool { BRUSH, LINE, RECTANGLE, ELLIPSE }
-
-data class AnimationFrame(var durationMs: Int = 100, val layers: MutableList<ArtLayer>)
 
 /** Fixed-resolution document viewport with a non-destructive raster layer stack. */
 class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight: Int) : View(context) {
@@ -259,6 +258,27 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun currentFrameDuration(): Int = animationFrames[currentFrameIndex].durationMs
+
+    fun animationFramesSnapshot(): List<AnimationFrame> = animationFrames.toList()
+
+    fun replaceFrames(frames: List<AnimationFrame>, selectedIndex: Int = 0) {
+        require(frames.isNotEmpty() && frames.size <= 120)
+        require(frames.all { frame ->
+            frame.layers.isNotEmpty() &&
+                frame.layers.all { it.width == documentWidth && it.height == documentHeight }
+        })
+        require(frames.sumOf { it.layers.size.toLong() } * documentWidth.toLong() * documentHeight.toLong() <= 64_000_000L)
+        stopPlayback()
+        animationFrames.clear()
+        animationFrames.addAll(frames)
+        currentFrameIndex = selectedIndex.coerceIn(0, animationFrames.lastIndex)
+        layers = animationFrames[currentFrameIndex].layers
+        activeLayerIndex = layers.lastIndex
+        clearHistory()
+        invalidate()
+    }
+
+
 
     fun setOnionSkin(enabled: Boolean) {
         onionSkinEnabled = enabled
