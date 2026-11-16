@@ -138,7 +138,7 @@ object ProjectArchive {
         require(framesToSave.size <= 120 && framesToSave.all { frame ->
             frame.layers.isNotEmpty() && frame.layers.all { it.width == width && it.height == height }
         }) { "The animation frame data is invalid." }
-        val totalLayerBitmaps = framesToSave.sumOf { it.layers.size.toLong() }
+        val totalLayerBitmaps = framesToSave.sumOf { frame -> frame.layers.sumOf { layer -> 1L + if (layer.maskBitmap != null) 1L else 0L } }
         require(width.toLong() * height.toLong() * totalLayerBitmaps <= 64_000_000L) {
             "This project exceeds the safe mobile memory budget. Reduce layers, frames, or canvas size before saving."
         }
@@ -212,7 +212,7 @@ object ProjectArchive {
         require(frameManifests.size <= 120 && frameManifests.all { it.layers.isNotEmpty() && it.layers.size <= 512 }) {
             "The animation frame count or layer count is invalid."
         }
-        val totalLayerBitmaps = frameManifests.sumOf { it.layers.size.toLong() }
+        val totalLayerBitmaps = frameManifests.sumOf { frame -> frame.layers.sumOf { layer -> 1L + if (layer.maskFile != null) 1L else 0L } }
         require(manifest.width.toLong() * manifest.height.toLong() * totalLayerBitmaps <= 64_000_000L) {
             "This project exceeds the safe mobile memory budget."
         }
