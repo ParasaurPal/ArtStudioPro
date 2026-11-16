@@ -1110,7 +1110,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val merged = ArtLayer(name = "Merged", width = documentWidth, height = documentHeight)
         val mergeCanvas = merged.canvas
         var clipBase: Bitmap? = null
-        layers.filter { it.isVisible }.forEach { layer ->
+        layers.filter { isLayerVisible(it) }.forEach { layer ->
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 alpha = (layer.opacity.coerceIn(0f, 1f) * 255f).toInt()
                 layer.blendMode.applyTo(this)
