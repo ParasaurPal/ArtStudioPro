@@ -98,6 +98,16 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     private var shapeStartY = 0f
     var textToolContent: String = "Text"
         private set
+    var textFontFamily: String = "sans-serif"
+        private set
+    var textBold: Boolean = false
+        private set
+    var textItalic: Boolean = false
+        private set
+    var textSizePx: Float = 48f
+        private set
+    var textOutlineWidth: Float = 0f
+        private set
     var gradientEndColor: Int = Color.WHITE
         private set
     private var selectedVectorPathId: String? = null
@@ -363,6 +373,15 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         playbackHandler.removeCallbacks(playbackRunnable)
     }
 
+    fun setTextStyle(fontFamily:String=textFontFamily,bold:Boolean=textBold,italic:Boolean=textItalic,size:Float=textSizePx,outline:Float=textOutlineWidth) {
+        textFontFamily=fontFamily
+        textBold=bold
+        textItalic=italic
+        textSizePx=size.coerceIn(8f,512f)
+        textOutlineWidth=outline.coerceIn(0f,24f)
+        invalidate()
+    }
+
     fun setGradientEndColor(color: Int) { gradientEndColor = color; invalidate() }
 
     fun setTextToolContent(value: String) {
@@ -409,13 +428,40 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
                 target.drawPath(tail, shapePaint)
             }
             DrawingTool.TEXT -> {
+                val style = (if (textBold) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL) or
+                    (if (textItalic) android.graphics.Typeface.ITALIC else 0)
                 val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = engine.activeColor
-                    textSize = engine.brush.baseSize.coerceAtLeast(12f) * 1.5f
+                    textSize = textSizePx
                     style = Paint.Style.FILL
-                    typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+                    textAlign = Paint.Align.LEFT
+                    typeface = android.graphics.Typeface.create(textFontFamily, style)
                 }
-                target.drawText(textToolContent, shapeStartX, shapeStartY, textPaint)
+                val maxWidth = (documentWidth * .72f).coerceAtLeast(textSizePx * 4f)
+                val lines = mutableListOf<String>()
+                textToolContent.split('\n').forEach { paragraph ->
+                    var line = ""
+                    paragraph.split(' ').forEach { word ->
+                        val candidate = if (line.isEmpty()) word else "$line $word"
+                        if (textPaint.measureText(candidate) > maxWidth && line.isNotEmpty()) {
+                            lines += line
+                            line = word
+                        } else line = candidate
+                    }
+                    lines += line
+                }
+                val lineHeight = textSizePx * 1.2f
+                lines.forEachIndexed { index, line ->
+                    if (textOutlineWidth > 0f) {
+                        textPaint.style = Paint.Style.STROKE
+                        textPaint.strokeWidth = textOutlineWidth
+                        textPaint.color = Color.BLACK
+                        target.drawText(line, shapeStartX, shapeStartY + index * lineHeight, textPaint)
+                        textPaint.style = Paint.Style.FILL
+                        textPaint.color = engine.activeColor
+                    }
+                    target.drawText(line, shapeStartX, shapeStartY + index * lineHeight, textPaint)
+                }
             }
             DrawingTool.GRADIENT -> {
                 shapePaint.style = Paint.Style.FILL
