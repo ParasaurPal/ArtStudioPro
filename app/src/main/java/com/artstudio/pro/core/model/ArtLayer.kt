@@ -49,7 +49,6 @@ enum class BlendMode(
             paint.blendMode = nativeMode
             paint.xfermode = null
         } else {
-            paint.blendMode = null
             paint.xfermode = porterDuffMode?.let { PorterDuffXfermode(it) }
         }
     }
