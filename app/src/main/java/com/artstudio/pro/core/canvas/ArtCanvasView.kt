@@ -245,8 +245,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val change = undoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
-        if (change.bitmapBeforePng != null) restoreBitmap(layer, change.bitmapBeforePng)
-        else if (change.maskBeforePng != null) restoreMask(layer, change.maskBeforePng)
+        if (change.bitmapBeforePng != null) {
+            restoreBitmap(layer, change.bitmapBeforePng)
+            change.maskBeforePng?.let { restoreMask(layer,it) }
+        } else if (change.maskBeforePng != null) restoreMask(layer, change.maskBeforePng)
         else restoreTiles(layer, change.before, if (change.isMask) layer.ensureMask() else layer.bitmap)
         change.vectorBefore?.let { layer.vectorPaths.clear(); layer.vectorPaths.addAll(it) }
         redoHistory.addLast(change)
@@ -257,8 +259,10 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         val change = redoHistory.removeLastOrNull() ?: return
         val layer = layers.firstOrNull { it.id == change.layerId }
         if (layer == null) { releaseChange(change); return }
-        if (change.bitmapAfterPng != null) restoreBitmap(layer, change.bitmapAfterPng)
-        else if (change.maskAfterPng != null) restoreMask(layer, change.maskAfterPng)
+        if (change.bitmapAfterPng != null) {
+            restoreBitmap(layer, change.bitmapAfterPng)
+            change.maskAfterPng?.let { restoreMask(layer,it) }
+        } else if (change.maskAfterPng != null) restoreMask(layer, change.maskAfterPng)
         else restoreTiles(layer, change.after, if (change.isMask) layer.ensureMask() else layer.bitmap)
         change.vectorAfter?.let { layer.vectorPaths.clear(); layer.vectorPaths.addAll(it) }
         undoHistory.addLast(change)
