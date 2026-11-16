@@ -1137,7 +1137,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     /** Renders the visible stack without flattening or mutating the editable layers. */
-    private fun renderLayersComposite(sourceLayers: List<ArtLayer>, backgroundColor: Int? = null): Bitmap {
+    private fun renderLayersComposite(sourceLayers: List<ArtLayer>, backgroundColor: Int? = null, includeVectors: Boolean = true): Bitmap {
         val output = Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888)
         val outputCanvas = Canvas(output)
         if (backgroundColor != null) outputCanvas.drawColor(backgroundColor)
@@ -1155,7 +1155,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
             }
             layer.applyColorAdjustments(paint)
             val layerRaster = layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)
-            VectorRenderer.draw(Canvas(layerRaster), layer.vectorPaths)
+            if (includeVectors) VectorRenderer.draw(Canvas(layerRaster), layer.vectorPaths)
             val clipped = if (layer.isClippedToBelow && clipBase != null) {
                 Bitmap.createBitmap(documentWidth, documentHeight, Bitmap.Config.ARGB_8888).also { temp ->
                     val tempCanvas = Canvas(temp)
@@ -1184,6 +1184,9 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun renderComposite(backgroundColor: Int? = null): Bitmap =
         renderLayersComposite(layers, backgroundColor)
+
+    fun renderRasterOnlyComposite(backgroundColor: Int? = null): Bitmap =
+        renderLayersComposite(layers, backgroundColor, includeVectors = false)
 
     fun forEachHighPrecisionTile(
         tileSize: Int = 512,
