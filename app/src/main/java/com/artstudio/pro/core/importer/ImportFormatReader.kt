@@ -101,6 +101,7 @@ object ImportFormatReader {
         val parser=Xml.newPullParser();parser.setInput(ByteArrayInputStream(data),"UTF-8")
         var width=1024f;var height=1024f
         val elements=mutableListOf<(Canvas)->Unit>()
+        val embeddedBitmaps=mutableListOf<Bitmap>()
         var event=parser.eventType
         while(event!=XmlPullParser.END_DOCUMENT){
             if(event==XmlPullParser.START_TAG){
@@ -113,9 +114,15 @@ object ImportFormatReader {
                     val href=parser.getAttributeValue("http://www.w3.org/1999/xlink","href")
                         ?: parser.getAttributeValue(null,"href")
                     val encoded=href?.substringAfter("base64,", "")?.takeIf{it.isNotBlank()}
-                    val embedded=encoded?.let{runCatching{BitmapFactory.decodeByteArray(android.util.Base64.decode(it,android.util.Base64.DEFAULT),0,android.util.Base64.decode(it,android.util.Base64.DEFAULT).size)}.getOrNull()}
-                    if(embedded!=null) elements += { canvas ->
-                        canvas.drawBitmap(embedded,null,RectF(x,y,x+w,y+h),Paint(Paint.FILTER_BITMAP_FLAG))
+                    val embedded=encoded?.let{runCatching{
+                        val decoded=android.util.Base64.decode(it,android.util.Base64.DEFAULT)
+                        BitmapFactory.decodeByteArray(decoded,0,decoded.size)
+                    }.getOrNull()}
+                    if(embedded!=null) {
+                        embeddedBitmaps += embedded
+                        elements += { canvas ->
+                            canvas.drawBitmap(embedded,null,RectF(x,y,x+w,y+h),Paint(Paint.FILTER_BITMAP_FLAG))
+                        }
                     }
                 }
                 else if(tag=="rect"||tag=="circle"||tag=="ellipse"||tag=="line"){
@@ -139,6 +146,7 @@ object ImportFormatReader {
         }
         val bitmap=Bitmap.createBitmap(width.toInt().coerceAtLeast(1),height.toInt().coerceAtLeast(1),Bitmap.Config.ARGB_8888)
         val canvas=Canvas(bitmap);elements.forEach{it(canvas)}
+        embeddedBitmaps.forEach { if(!it.isRecycled) it.recycle() }
         return bitmap
     }
 }
