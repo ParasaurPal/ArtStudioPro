@@ -33,6 +33,7 @@ import com.artstudio.pro.core.canvas.SymmetryMode
 import com.artstudio.pro.core.canvas.SelectionMode
 import com.artstudio.pro.core.canvas.DrawingTool
 import com.artstudio.pro.core.model.ArtLayer
+import com.artstudio.pro.core.model.AnimationFrame
 import com.artstudio.pro.core.model.BlendMode
 import com.artstudio.pro.core.project.ProjectArchive
 import com.artstudio.pro.core.project.DocumentPresets
@@ -63,6 +64,8 @@ fun StudioScreen() {
     var customWidth by remember { mutableStateOf("2048") }
     var customHeight by remember { mutableStateOf("2048") }
     var pendingLayers by remember { mutableStateOf<List<ArtLayer>?>(null) }
+    var pendingFrames by remember { mutableStateOf<List<AnimationFrame>?>(null) }
+    var pendingFrameIndex by remember { mutableIntStateOf(0) }
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
     var customColorHex by remember { mutableStateOf("#000000") }
@@ -90,7 +93,7 @@ fun StudioScreen() {
         if (uri != null) runCatching {
             val view = canvasView ?: error("The canvas is not ready.")
             context.contentResolver.openOutputStream(uri)?.use {
-                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength, documentDpi)
+                ProjectArchive.save(it, documentWidth, documentHeight, view.layers, view.paperKind, view.paperStrength, documentDpi, view.animationFramesSnapshot(), view.currentFrameIndex)
             } ?: error("Unable to open the selected file.")
         }.onSuccess {
             Toast.makeText(context, "Project saved", Toast.LENGTH_SHORT).show()
@@ -161,10 +164,12 @@ fun StudioScreen() {
             documentDpi = project.dpi
             canvasView?.setPaperTexture(project.paperKind, project.paperStrength)
             if (project.width == documentWidth && project.height == documentHeight) {
-                canvasView?.replaceLayers(project.layers)
+                canvasView?.replaceFrames(project.frames, project.currentFrameIndex)
                 layerRefresh++
             } else {
                 pendingLayers = project.layers
+                pendingFrames = project.frames
+                pendingFrameIndex = project.currentFrameIndex
                 documentWidth = project.width
                 documentHeight = project.height
             }
@@ -563,7 +568,8 @@ fun StudioScreen() {
                         ArtCanvasView(ctx, documentWidth, documentHeight).apply {
                             strokeEngine = StrokeEngine(brush, activeColor)
                             setPaperTexture(paperKind, paperStrength)
-                            pendingLayers?.let { replaceLayers(it) }
+                            pendingFrames?.let { replaceFrames(it, pendingFrameIndex) }
+                                ?: pendingLayers?.let { replaceLayers(it) }
                             canvasView = this
                         }
                     },
