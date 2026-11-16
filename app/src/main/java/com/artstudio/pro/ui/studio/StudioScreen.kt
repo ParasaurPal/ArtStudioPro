@@ -122,6 +122,9 @@ fun StudioScreen() {
     var selectedFilter by remember { mutableStateOf(ImageFilter.GRAYSCALE) }
     var filterAmount by remember { mutableFloatStateOf(1f) }
     var showPoseReference by remember { mutableStateOf(false) }
+    var showComicLayoutDialog by remember { mutableStateOf(false) }
+    var comicRows by remember { mutableIntStateOf(2) }
+    var comicColumns by remember { mutableIntStateOf(2) }
     var poseReferenceView by remember { mutableStateOf<PoseReferenceView?>(null) }
     var poseJoint by remember { mutableStateOf("leftElbow") }
     var poseOffsetX by remember { mutableFloatStateOf(0f) }
@@ -759,7 +762,7 @@ fun StudioScreen() {
                         TextButton(onClick = { canvasView?.addVectorRectangle(); layerRefresh++ }) { Text("Vector rect") }
                         TextButton(onClick = { canvasView?.addVectorEllipse(); layerRefresh++ }) { Text("Vector ellipse") }
                         TextButton(onClick = { canvasView?.addVectorLine(); layerRefresh++ }) { Text("Vector line") }
-                        TextButton(onClick = { canvasView?.addComicGrid(2, 2); layerRefresh++ }) { Text("Comic grid") }
+                        TextButton(onClick = { showComicLayoutDialog = true }) { Text("Comic layout") }
                         TextButton(onClick = { showPoseReference = true }) { Text("3D pose") }
                         TextButton(onClick = {
                             val preset = brush.copy(
@@ -1384,6 +1387,30 @@ fun StudioScreen() {
                 }
             },
             confirmButton = { TextButton(onClick = { showProfilePicker = false }) { Text("Done") } }
+        )
+    }
+
+    if (showComicLayoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showComicLayoutDialog = false },
+            title = { Text("Comic panel layout") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Rows · $comicRows")
+                    Slider(value = comicRows.toFloat(), onValueChange = { comicRows = it.toInt().coerceIn(1,5) }, valueRange = 1f..5f, steps = 3)
+                    Text("Columns · $comicColumns")
+                    Slider(value = comicColumns.toFloat(), onValueChange = { comicColumns = it.toInt().coerceIn(1,5) }, valueRange = 1f..5f, steps = 3)
+                    Text("${comicRows * comicColumns} panels", style = MaterialTheme.typography.labelSmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    canvasView?.addComicGrid(comicRows,comicColumns)
+                    layerRefresh++
+                    showComicLayoutDialog = false
+                }) { Text("Create panels") }
+            },
+            dismissButton = { TextButton(onClick = { showComicLayoutDialog = false }) { Text("Cancel") } }
         )
     }
 
