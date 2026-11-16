@@ -32,6 +32,18 @@ data class BrushDefinition(
     var angleFollowsStroke: Boolean = true,
     var sizeSource: DynamicsSource = DynamicsSource.PRESSURE,
     var opacitySource: DynamicsSource = DynamicsSource.PRESSURE,
+    var flowSource: DynamicsSource = DynamicsSource.FIXED,
+    var angleSource: DynamicsSource = DynamicsSource.FIXED,
+    var roundness: Float = 1f,
+    var hardness: Float = 1f,
+    var textureStrength: Float = 0f,
+    var textureScale: Float = 1f,
+    var wetness: Float = 0f,
+    var pigmentLoad: Float = 1f,
+    var bristleCount: Int = 1,
+    var wetMixing: Boolean = false,
+    var flowCurve: DynamicsCurve = DynamicsCurve(),
+    var opacityCurve: DynamicsCurve = DynamicsCurve(),
     val sizeCurve: DynamicsCurve = DynamicsCurve(),
     @Transient var tipMask: Bitmap? = null
 )
