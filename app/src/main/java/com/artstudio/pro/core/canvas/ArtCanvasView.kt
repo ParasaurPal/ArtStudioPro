@@ -937,7 +937,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     fun createFilterLayer(filter: ImageFilter, amount: Float = 1f): Boolean {
         if (activeLayer.isLocked) return false
-        if (layers.size >= maxLayerCount) return false
+        if (!canAddLayer()) return false
         val sourceLayer = activeLayer
         val source = sourceLayer.renderMaskedBitmap().also { VectorRenderer.draw(Canvas(it), sourceLayer.vectorPaths) }
         val filtered = try { FilterEngine.apply(source, filter, amount) } finally { source.recycle() }
@@ -1150,6 +1150,13 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
         invalidate()
     }
 
+    private fun canAddLayer(withMask:Boolean=false):Boolean {
+        val used = layers.sumOf { 1L + if (it.maskBitmap != null) 1L else 0L }
+        val extra = if (withMask) 2L else 1L
+        return (used + extra) * documentWidth.toLong() * documentHeight.toLong() <= 64_000_000L &&
+            layers.size < maxLayerCount
+    }
+
     private fun isLayerVisible(layer: ArtLayer): Boolean =
         layer.isVisible && (layer.groupId?.let { id -> layerGroups.firstOrNull { it.id == id }?.isVisible } ?: true)
 
@@ -1181,7 +1188,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun addLayer(name: String = "Layer ${layers.size}"): Boolean {
-        if (layers.size >= maxLayerCount) return false
+        if (!canAddLayer()) return false
         layers.add(ArtLayer(name = name, width = documentWidth, height = documentHeight))
         activeLayerIndex = layers.lastIndex
         invalidate()
@@ -1189,8 +1196,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun duplicateActiveLayer(): Boolean {
-        if (layers.size >= maxLayerCount) return false
         val source = activeLayer
+        if (!canAddLayer(source.maskBitmap != null)) return false
         val copy = ArtLayer(
             name = "${source.name} copy", width = documentWidth, height = documentHeight,
             opacity = source.opacity, isVisible = source.isVisible,
@@ -1433,7 +1440,7 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
     }
 
     fun addImageLayer(bitmap: Bitmap, name: String = "Imported image"): Boolean {
-        if (layers.size >= maxLayerCount) return false
+        if (!canAddLayer()) return false
         val layer = ArtLayer(name = name, width = documentWidth, height = documentHeight)
         val scale = min(documentWidth.toFloat() / bitmap.width, documentHeight.toFloat() / bitmap.height)
         val width = bitmap.width * scale
