@@ -49,12 +49,14 @@ fun StudioScreen() {
     var layerRefresh by remember { mutableIntStateOf(0) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showPaperPicker by remember { mutableStateOf(false) }
+    var showMediumPicker by remember { mutableStateOf(false) }
+    var brushMedium by remember { mutableStateOf(BrushMedium.INK_PEN) }
     var paperKind by remember { mutableStateOf(PaperKind.SMOOTH) }
     var paperStrength by remember { mutableFloatStateOf(1f) }
     var showNewDocument by remember { mutableStateOf(false) }
     var eraserMode by remember { mutableStateOf(false) }
     var canvasView by remember { mutableStateOf<ArtCanvasView?>(null) }
-    val brush = remember { BrushDefinition("basic-ink", "Ink Pen", BrushMedium.INK_PEN) }
+    val brush = remember(brushMedium) { BrushDefinition("medium-${brushMedium.name.lowercase()}", brushMedium.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, brushMedium) }
 
     val saveProject = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/x-artstudio-project")
@@ -175,6 +177,7 @@ fun StudioScreen() {
                             canvasView?.strokeEngine?.eraserMode = eraserMode
                         }) { Text(if (eraserMode) "Eraser on" else "Eraser") }
                         TextButton(onClick = { showPaperPicker = true }) { Text("Paper: ${paperKind.title}") }
+                        TextButton(onClick = { showMediumPicker = true }) { Text("Brush: ${brushMedium.name.replace('_', ' ')}") }
                         TextButton(onClick = {
                             canvasView?.addLayer()
                             layerRefresh++
@@ -302,6 +305,53 @@ fun StudioScreen() {
         )
     }
 
+
+    if (showMediumPicker) {
+        AlertDialog(
+            onDismissRequest = { showMediumPicker = false },
+            title = { Text("Traditional media") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Choose a brush response that works with the selected paper surface.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    BrushMedium.values().forEach { medium ->
+                        TextButton(
+                            onClick = {
+                                brushMedium = medium
+                                showMediumPicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Text(medium.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() })
+                                    Text(
+                                        when (medium) {
+                                            BrushMedium.GRAPHITE -> "Soft pencil grain and broken pigment"
+                                            BrushMedium.CHARCOAL -> "Rough, dusty marks with scattered grain"
+                                            BrushMedium.INK_PEN -> "Clean, solid ink strokes"
+                                            BrushMedium.WATERCOLOR -> "Transparent layered washes and darker edges"
+                                            BrushMedium.OIL_IMPASTO -> "Opaque paint with raised bristle ridges"
+                                            BrushMedium.PROCEDURAL -> "Smooth general-purpose brush"
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (brushMedium == medium) Text("✓", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMediumPicker = false }) { Text("Close") }
+            }
+        )
+    }
 
     if (showPaperPicker) {
         AlertDialog(
