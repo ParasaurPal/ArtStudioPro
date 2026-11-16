@@ -253,8 +253,8 @@ class ArtCanvasView(context: Context, val documentWidth: Int, val documentHeight
 
     private fun canAddAnimationFrame(): Boolean {
         if (animationFrames.size >= 120) return false
-        val existingLayerCount = animationFrames.sumOf { it.layers.size.toLong() }
-        val addedLayerCount = layers.size.toLong()
+        val existingLayerCount = animationFrames.sumOf { frame -> frame.layers.sumOf { 1L + if (it.maskBitmap != null) 1L else 0L } }
+        val addedLayerCount = layers.sumOf { 1L + if (it.maskBitmap != null) 1L else 0L }
         return documentWidth.toLong() * documentHeight.toLong() *
             (existingLayerCount + addedLayerCount) <= 64_000_000L
     }
